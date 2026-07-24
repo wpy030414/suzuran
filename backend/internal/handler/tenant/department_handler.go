@@ -1,44 +1,20 @@
 package tenant
 
 import (
-	"net/http"
-	"strconv"
-
-	"github.com/gin-gonic/gin"
+	handlercommon "github.com/xrl/suzuran-cloud/internal/handler/common"
 	"github.com/xrl/suzuran-cloud/internal/service"
 )
 
+// DepartmentHandler handles tenant-side department management.
+// org_id is resolved from the gin context (set by auth middleware).
 type DepartmentHandler struct {
-	deptService *service.DepartmentService
+	*handlercommon.OrgMgmtHandler
 }
 
-func NewDepartmentHandler(deptService *service.DepartmentService) *DepartmentHandler {
-	return &DepartmentHandler{deptService: deptService}
-}
-
-func (h *DepartmentHandler) Create(c *gin.Context) {
-	c.JSON(http.StatusCreated, gin.H{"message": "department created"})
-}
-
-func (h *DepartmentHandler) GetTree(c *gin.Context) {
-	c.JSON(http.StatusOK, []interface{}{})
-}
-
-func (h *DepartmentHandler) List(c *gin.Context) {
-	c.JSON(http.StatusOK, []interface{}{})
-}
-
-func (h *DepartmentHandler) SetManager(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	c.JSON(http.StatusOK, gin.H{"message": "manager set for department", "id": id})
-}
-
-func (h *DepartmentHandler) Update(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	c.JSON(http.StatusOK, gin.H{"message": "department updated", "id": id})
-}
-
-func (h *DepartmentHandler) Delete(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
-	c.JSON(http.StatusOK, gin.H{"message": "department deleted", "id": id})
+// NewDepartmentHandler creates a tenant-scoped DepartmentHandler.
+func NewDepartmentHandler(ds *service.DepartmentService, us *service.UserService) *DepartmentHandler {
+	return &DepartmentHandler{
+		OrgMgmtHandler: handlercommon.NewOrgMgmtHandler(
+			handlercommon.FromContext, ds, us, ""),
+	}
 }

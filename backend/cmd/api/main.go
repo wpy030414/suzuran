@@ -63,7 +63,13 @@ func main() {
 	authService := service.NewAuthService(userRepo, bondRepo, orgRepo)
 	orgService := service.NewOrgService(orgRepo, deptRepo, bondRepo)
 	deptService := service.NewDepartmentService(deptRepo, bondRepo)
+	userService := service.NewUserService(userRepo, bondRepo)
 	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
+	appService := service.NewApplicationService(
+		repository.NewApplicationRepository(db),
+		repository.NewFormRepository(db),
+		repository.NewViewRepository(db),
+	)
 	_ = service.NewWorkflowEngine(wfDefRepo, wfInstRepo, wfApproveRepo)
 	_ = service.NewReportService(db, reportRepo)
 	_ = service.NewApplicationPageService(repository.NewApplicationPageRepository(db), repository.NewWidgetLibraryRepository(db))
@@ -77,7 +83,10 @@ func main() {
 	// Initialize handlers with dependency injection
 	authHandler := auth.NewHandler(authService)
 	orgHandler := provider.NewOrgHandler(orgService)
-	deptHandler := tenant.NewDepartmentHandler(deptService)
+	appHandler := provider.NewApplicationHandler(appService)
+	orgMemberHandler := provider.NewOrgMemberHandler(deptService, userService)
+	deptHandler := tenant.NewDepartmentHandler(deptService, userService)
+	userHandler := tenant.NewUserHandler(userService)
 	formHandler := tenant.NewFormHandler(formService)
 	fileHandler := handler.NewFileHandler(minioClient)
 	dingHandler := handler.NewDingTalkHandler()
@@ -119,38 +128,68 @@ func main() {
 		{
 			providerGroup.GET("/orgs", orgHandler.List)
 			providerGroup.POST("/orgs", orgHandler.Create)
-			providerGroup.PUT("/orgs/:id", orgHandler.Update)
-			providerGroup.DELETE("/orgs/:id", orgHandler.Delete)
+			providerGroup.PUT("/orgs/:orgId", orgHandler.Update)
+			providerGroup.DELETE("/orgs/:orgId", orgHandler.Delete)
 
-			// Form management routes (Provider creates apps)
-			forms := providerGroup.Group("/forms")
+			// Organization department & member management
+			orgDepts := providerGroup.Group("/orgs/:orgId/departments")
 			{
-				forms.GET("", formHandler.List)
-				forms.POST("", formHandler.Create)
-				forms.PUT("/:id", formHandler.Update)
-				forms.POST("/:id/publish", formHandler.Publish)
-				forms.DELETE("/:id", formHandler.Delete)
+				orgDepts.GET("", orgMemberHandler.ListDepts)
+				orgDepts.GET("/tree", orgMemberHandler.DeptTree)
+				orgDepts.POST("", orgMemberHandler.CreateDept)
+				orgDepts.PUT("/:deptId", orgMemberHandler.UpdateDept)
+				orgDepts.DELETE("/:deptId", orgMemberHandler.DeleteDept)
+				orgDepts.POST("/:deptId/manager", orgMemberHandler.SetDeptManager)
+			}
+			orgUsers := providerGroup.Group("/orgs/:orgId/users")
+			{
+				orgUsers.GET("", orgMemberHandler.ListMembers)
+				orgUsers.POST("", orgMemberHandler.CreateMember)
+				orgUsers.PUT("/:userId", orgMemberHandler.UpdateMember)
+				orgUsers.DELETE("/:userId", orgMemberHandler.RemoveMember)
+			}
+
+			// Application management routes (new architecture)
+			apps := providerGroup.Group("/applications")
+			{
+				apps.GET("", appHandler.List)
+				apps.POST("", appHandler.Create)
+				apps.GET("/:id", appHandler.GetByID)
+				apps.POST("/:id/copy", appHandler.Copy)
+				apps.POST("/:id/update", appHandler.UpdateVersion)
+				apps.DELETE("/:id", appHandler.Delete)
+				apps.POST("/:id/distribute", appHandler.Distribute)
+
+				// Form management (nested under application)
+				apps.GET("/:id/forms", appHandler.ListForms)
+				apps.POST("/:id/forms", appHandler.CreateForm)
+				apps.GET("/:id/forms/:formId", appHandler.GetForm)
+				apps.PUT("/:id/forms/:formId", appHandler.UpdateForm)
+				apps.DELETE("/:id/forms/:formId", appHandler.DeleteForm)
+				// View management (nested under application)
+				apps.GET("/:id/views", appHandler.ListViews)
+				apps.POST("/:id/views", appHandler.CreateView)
+				apps.DELETE("/:id/views/:viewId", appHandler.DeleteView)
 			}
 		}
 
 		// Tenant admin routes
 		tenantGroup := protected.Group("/tenant")
 		{
-			userHandler := tenant.NewUserHandler()
-			tenantGroup.GET("/users", userHandler.List)
-			tenantGroup.POST("/users", userHandler.Create)
-			tenantGroup.PUT("/users/:id", userHandler.Update)
-			tenantGroup.DELETE("/users/:id", userHandler.Delete)
+			tenantGroup.GET("/users", userHandler.ListMembers)
+			tenantGroup.POST("/users", userHandler.CreateMember)
+			tenantGroup.PUT("/users/:userId", userHandler.UpdateMember)
+			tenantGroup.DELETE("/users/:userId", userHandler.RemoveMember)
 
 			// Department routes
 			depts := tenantGroup.Group("/departments")
 			{
-				depts.GET("", deptHandler.List)
-				depts.GET("/tree", deptHandler.GetTree)
-				depts.POST("", deptHandler.Create)
-				depts.PUT("/:id", deptHandler.Update)
-				depts.DELETE("/:id", deptHandler.Delete)
-				depts.POST("/:id/manager", deptHandler.SetManager)
+				depts.GET("", deptHandler.ListDepts)
+				depts.GET("/tree", deptHandler.DeptTree)
+				depts.POST("", deptHandler.CreateDept)
+				depts.PUT("/:deptId", deptHandler.UpdateDept)
+				depts.DELETE("/:deptId", deptHandler.DeleteDept)
+				depts.POST("/:deptId/manager", deptHandler.SetDeptManager)
 			}
 
 			// DingTalk sync routes

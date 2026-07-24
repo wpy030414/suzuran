@@ -42,5 +42,10 @@ func (r *DepartmentRepository) Delete(ctx context.Context, id int) error {
 }
 
 func (r *DepartmentRepository) SetManager(ctx context.Context, deptID, managerUserID int) error {
-	return r.db.WithContext(ctx).Model(&model.Department{}).Where("id = ?", deptID).Update("manager_user_id", managerUserID).Error
+	// managerUserID == 0 表示清除负责人 → 写 NULL
+	val := interface{}(managerUserID)
+	if managerUserID == 0 {
+		val = nil
+	}
+	return r.db.WithContext(ctx).Model(&model.Department{}).Where("id = ?", deptID).Update("manager_user_id", val).Error
 }

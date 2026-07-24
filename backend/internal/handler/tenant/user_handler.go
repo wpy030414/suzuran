@@ -1,39 +1,20 @@
 package tenant
 
 import (
-	"net/http"
-
-	"github.com/gin-gonic/gin"
-	"github.com/xrl/suzuran-cloud/internal/model"
-	"github.com/xrl/suzuran-cloud/internal/repository"
+	handlercommon "github.com/xrl/suzuran-cloud/internal/handler/common"
+	"github.com/xrl/suzuran-cloud/internal/service"
 )
 
+// UserHandler handles tenant-side member management.
+// org_id is resolved from the gin context (set by auth middleware).
 type UserHandler struct {
-	userRepo *repository.UserRepository
+	*handlercommon.OrgMgmtHandler
 }
 
-func NewUserHandler() *UserHandler {
-	return &UserHandler{}
-}
-
-func (h *UserHandler) Create(c *gin.Context) {
-	var user model.User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+// NewUserHandler creates a tenant-scoped UserHandler.
+func NewUserHandler(us *service.UserService) *UserHandler {
+	return &UserHandler{
+		OrgMgmtHandler: handlercommon.NewOrgMgmtHandler(
+			handlercommon.FromContext, nil, us, ""),
 	}
-
-	c.JSON(http.StatusCreated, user)
-}
-
-func (h *UserHandler) List(c *gin.Context) {
-	c.JSON(http.StatusOK, []model.User{})
-}
-
-func (h *UserHandler) Update(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "updated"})
-}
-
-func (h *UserHandler) Delete(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }

@@ -25,7 +25,7 @@ func TestCORSSetsAllowOriginHeader(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://localhost:5173", w.Header().Get("Access-Control-Allow-Origin"))
 }
 
 func TestCORSSetsAllowMethodsHeader(t *testing.T) {
@@ -39,7 +39,7 @@ func TestCORSSetsAllowMethodsHeader(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, "GET, POST, PUT, DELETE, OPTIONS", w.Header().Get("Access-Control-Allow-Methods"))
+	assert.Equal(t, "GET, POST, PUT, DELETE, PATCH, OPTIONS", w.Header().Get("Access-Control-Allow-Methods"))
 }
 
 func TestCORSSetsAllowHeadersHeader(t *testing.T) {
@@ -53,7 +53,7 @@ func TestCORSSetsAllowHeadersHeader(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, "Content-Type, Authorization", w.Header().Get("Access-Control-Allow-Headers"))
+	assert.Equal(t, "Content-Type, Authorization, X-Requested-With", w.Header().Get("Access-Control-Allow-Headers"))
 }
 
 func TestCORSOptionsReturns204(t *testing.T) {

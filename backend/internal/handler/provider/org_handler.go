@@ -36,7 +36,7 @@ func (h *OrgHandler) Create(c *gin.Context) {
 }
 
 func (h *OrgHandler) GetByID(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, _ := strconv.Atoi(c.Param("orgId"))
 	org, err := h.orgService.GetOrgByID(c.Request.Context(), id)
 	if err != nil || org == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "organization not found"})
@@ -57,7 +57,7 @@ func (h *OrgHandler) List(c *gin.Context) {
 }
 
 func (h *OrgHandler) Update(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, _ := strconv.Atoi(c.Param("orgId"))
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -77,7 +77,7 @@ func (h *OrgHandler) Update(c *gin.Context) {
 }
 
 func (h *OrgHandler) Delete(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, _ := strconv.Atoi(c.Param("orgId"))
 	err := h.orgService.DeleteOrg(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -47,3 +47,8 @@ docker-compose.override.yml
 # Build artifacts
 target/
 build/
+/backend/main
+
+# Test artifacts
+test-results/
+.last-run.json

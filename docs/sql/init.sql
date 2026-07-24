@@ -25,10 +25,11 @@ CREATE TABLE users (
     salt VARCHAR(255) NOT NULL,
     name VARCHAR(255),
     email VARCHAR(255),
+    position VARCHAR(255),
     dingtalk_userid VARCHAR(100),
     dingtalk_unionid VARCHAR(100),
     dingtalk_openid VARCHAR(100),
-    avatar VARCHAR(500),
+    avatar_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -137,7 +138,54 @@ CREATE TABLE workflow_approvals (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 报表定义
+-- ============================================
+-- 应用管理表（新架构：应用 → 表单 + 视图）
+-- ============================================
+
+-- 应用定义表
+CREATE TABLE applications (
+    id SERIAL PRIMARY KEY,
+    uuid UUID NOT NULL DEFAULT gen_random_uuid(),
+    package_name VARCHAR(255) NOT NULL,
+    version VARCHAR(50) NOT NULL DEFAULT '1.0.0',
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    org_id INT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    schema JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(uuid),
+    INDEX idx_package_version (package_name, version)
+);
+
+-- 表单定义表（属于某个应用）
+CREATE TABLE forms (
+    id SERIAL PRIMARY KEY,
+    application_id INT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(255) NOT NULL,
+    description TEXT,
+    schema JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(application_id, code)
+);
+
+-- 视图定义表（属于某个应用）
+CREATE TABLE views (
+    id SERIAL PRIMARY KEY,
+    application_id INT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL, -- table, chart, kanban, etc.
+    description TEXT,
+    config JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(application_id, code)
+);
+
+-- 报表定义（保留，但未来可能迁移到 views）
 CREATE TABLE report_definitions (
     id SERIAL PRIMARY KEY,
     org_id INT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,

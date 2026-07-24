@@ -6,8 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/xrl/suzuran-cloud/internal/model"
+	"github.com/xrl/suzuran-cloud/internal/pkg/jwt"
+	"github.com/xrl/suzuran-cloud/internal/pkg/redis"
 	"github.com/xrl/suzuran-cloud/internal/repository"
 )
 
@@ -90,6 +93,15 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 
 	preToken := fmt.Sprintf("pre_%d", user.ID)
 
+	// Store pre-token in Redis for validation (5 minutes expiry)
+	if redis.Client != nil {
+		redisKey := fmt.Sprintf("pre_token:%s", preToken)
+		err := redis.Set(ctx, redisKey, user.ID, 5*time.Minute)
+		if err != nil {
+			fmt.Printf("Warning: Failed to store pre-token in Redis: %v\n", err)
+		}
+	}
+
 	return &LoginResponse{
 		PreToken: preToken,
 		User:     user,
@@ -99,24 +111,45 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 
 // SelectOrgRequest represents an organization selection request
 type SelectOrgRequest struct {
-	PreToken string `json:"preToken"`
+	PreToken string `json:"preToken"` // Support both camelCase and snake_case
 	OrgID    int    `json:"orgId"`
 }
 
 // SelectOrgResponse represents an organization selection response
+type UserInfoWithRole struct {
+	ID        int       `json:"id"`
+	Phone     string    `json:"phone"`
+	Name      string    `json:"name"`
+	Role      string    `json:"role"`
+	OrgID     int       `json:"orgId"`
+}
+
 type SelectOrgResponse struct {
-	Token string `json:"token"`
-	OrgID int    `json:"orgId"`
-	Role  string `json:"role"`
+	Token string           `json:"token"`
+	OrgID int              `json:"orgId"`
+	Role  string           `json:"role"`
+	User  *UserInfoWithRole `json:"user"`
 }
 
 // SelectOrg selects an organization and generates an access token
 func (s *AuthService) SelectOrg(ctx context.Context, req *SelectOrgRequest) (*SelectOrgResponse, error) {
-	// Extract user ID from pre-token (simplified, no Redis)
+	// Validate pre-token from Redis
 	var userID int
-	_, err := fmt.Sscanf(req.PreToken, "pre_%d", &userID)
-	if err != nil || userID == 0 {
-		return nil, errors.New("invalid or expired pre-token")
+	if redis.Client != nil {
+		redisKey := fmt.Sprintf("pre_token:%s", req.PreToken)
+		val, err := redis.Get(ctx, redisKey).Result()
+		if err != nil {
+			return nil, errors.New("invalid or expired pre-token")
+		}
+		fmt.Sscanf(val, "%d", &userID)
+		// Delete pre-token after use (one-time use)
+		redis.Client.Del(ctx, redisKey)
+	} else {
+		// Fallback: parse user ID from pre-token format (for development without Redis)
+		_, err := fmt.Sscanf(req.PreToken, "pre_%d", &userID)
+		if err != nil || userID == 0 {
+			return nil, errors.New("invalid or expired pre-token")
+		}
 	}
 
 	bond, err := s.bondRepo.GetByOrgAndUser(ctx, req.OrgID, userID)
@@ -129,16 +162,39 @@ func (s *AuthService) SelectOrg(ctx context.Context, req *SelectOrgRequest) (*Se
 
 	role := "user"
 	if bond.IsAdmin {
-		role = "org_admin"
-	} else if bond.IsDepartmentManager {
-		role = "dept_manager"
+		// Map admin role to match frontend expectations
+		// Check if this is a provider org (org ID 1 is the demo provider)
+		if req.OrgID == 1 {
+			role = "provider"
+		} else {
+			role = "tenant_admin"
+		}
 	}
 
-	token := fmt.Sprintf("jwt_token_for_user_%d_org_%d", userID, req.OrgID)
+	// Get user info
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	token, err := jwt.GenerateToken(userID, req.OrgID, role)
+	if err != nil {
+		return nil, errors.New("failed to generate token")
+	}
+
+	// Create user info with role
+	userWithRole := &UserInfoWithRole{
+		ID:    userID,
+		Phone: user.Phone,
+		Name:  user.Name,
+		Role:  role,
+		OrgID: req.OrgID,
+	}
 
 	return &SelectOrgResponse{
 		Token: token,
 		OrgID: req.OrgID,
 		Role:  role,
+		User:  userWithRole,
 	}, nil
 }
