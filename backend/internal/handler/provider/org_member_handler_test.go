@@ -108,6 +108,7 @@ func TestProviderRemoveMember(t *testing.T) {
 		{Key: "userId", Value: fmt.Sprint(user.ID)},
 	}
 	c.Set("role", "provider")
+	c.Set("user_id", 999) // current user (different from target)
 
 	h.RemoveMember(c)
 

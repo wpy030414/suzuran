@@ -1,8 +1,41 @@
 package model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"time"
 )
+
+// JSONB represents a JSON object stored in PostgreSQL
+type JSONB map[string]interface{}
+
+// GormDataType returns the SQL data type for GORM AutoMigrate.
+// PostgreSQL uses the gorm tag override (jsonb); SQLite falls back to text.
+func (JSONB) GormDataType() string {
+	return "text"
+}
+
+// Scan implements the sql.Scanner interface
+func (j *JSONB) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to unmarshal JSONB value: %v", value)
+	}
+	return json.Unmarshal(bytes, j)
+}
+
+// Value implements the driver.Valuer interface
+func (j JSONB) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return json.Marshal(j)
+}
 
 // AuditLog tracks user operations
 type AuditLog struct {

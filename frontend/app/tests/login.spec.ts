@@ -37,8 +37,8 @@ test('服务商登录流程测试', async ({ page }) => {
     throw new Error('登录后被重定向到禁止访问页面，请检查路由守卫逻辑喵～');
   }
 
-  // 验证是否成功进入服务商页面
-  await expect(page.locator('h1')).toContainText(/服务商仪表盘|Dashboard/, { timeout: 5000 });
+  // 验证是否成功进入仪表盘页面
+  await expect(page.locator('h1')).toContainText(/仪表盘/, { timeout: 5000 });
 
   console.log('✅ Playwright 测试成功喵！');
 });

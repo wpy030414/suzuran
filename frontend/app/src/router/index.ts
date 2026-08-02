@@ -34,24 +34,9 @@ const router = createRouter({
           component: () => import('../views/provider/Organizations.vue'),
         },
         {
-          path: 'apps',
-          name: 'Applications',
-          component: () => import('../views/provider/Applications.vue'),
-        },
-        {
-          path: 'apps/:id',
-          name: 'ApplicationDetail',
-          component: () => import('../views/provider/ApplicationDetail.vue'),
-        },
-        {
           path: 'orgs/:orgId',
           name: 'OrgDetail',
           component: () => import('../views/provider/OrgDetail.vue'),
-        },
-        {
-          path: 'apps/:id/forms/:formId',
-          name: 'FormDesigner',
-          component: () => import('../views/provider/FormDesigner.vue'),
         },
       ],
     },
@@ -89,11 +74,6 @@ const router = createRouter({
           path: '',
           name: 'UserDashboard',
           component: () => import('../views/user/Dashboard.vue'),
-        },
-        {
-          path: 'forms/:code',
-          name: 'FormSubmission',
-          component: () => import('../views/user/FormSubmission.vue'),
         },
       ],
     },

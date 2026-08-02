@@ -162,11 +162,17 @@ func (s *AuthService) SelectOrg(ctx context.Context, req *SelectOrgRequest) (*Se
 
 	role := "user"
 	if bond.IsAdmin {
-		// Map admin role to match frontend expectations
-		// Check if this is a provider org (org ID 1 is the demo provider)
-		if req.OrgID == 1 {
+		// Check if user is from super admin org (org_id=1)
+		// Super admin has provider role in all organizations
+		userBond, err := s.bondRepo.GetByOrgAndUser(ctx, 1, userID)
+		if err == nil && userBond != nil && userBond.IsAdmin {
+			// User is super admin from org_id=1, give them provider role
+			role = "provider"
+		} else if req.OrgID == 1 {
+			// This is the super admin org itself
 			role = "provider"
 		} else {
+			// Regular tenant admin
 			role = "tenant_admin"
 		}
 	}

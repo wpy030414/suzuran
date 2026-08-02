@@ -39,15 +39,6 @@ func setupE2ETestDB(t *testing.T) *gorm.DB {
 		&model.Org{},
 		&model.OrgUserBond{},
 		&model.Department{},
-		&model.FormDefinition{},
-		&model.FormSubmission{},
-		&model.FormDistribution{},
-		&model.WorkflowDefinition{},
-		&model.WorkflowInstance{},
-		&model.WorkflowApproval{},
-		&model.ReportDefinition{},
-		&model.ApplicationPage{},
-		&model.WidgetLibrary{},
 	))
 
 	return db
@@ -63,22 +54,17 @@ func setupRouter(db *gorm.DB) *gin.Engine {
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
 	deptRepo := repository.NewDepartmentRepository(db)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, bondRepo, orgRepo)
 	orgService := service.NewOrgService(orgRepo, deptRepo, bondRepo)
 	deptService := service.NewDepartmentService(deptRepo, bondRepo)
 	userSvc := service.NewUserService(userRepo, bondRepo)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
 	orgHandler := provider.NewOrgHandler(orgService)
 	deptHandler := tenant.NewDepartmentHandler(deptService, userSvc)
-	formHandler := tenant.NewFormHandler(formService)
 
 	// CORS middleware
 	r.Use(middleware.CORS())
@@ -103,16 +89,6 @@ func setupRouter(db *gorm.DB) *gin.Engine {
 			providerGroup.POST("/orgs", orgHandler.Create)
 			providerGroup.PUT("/orgs/:orgId", orgHandler.Update)
 			providerGroup.DELETE("/orgs/:orgId", orgHandler.Delete)
-
-			// Form management routes
-			forms := providerGroup.Group("/forms")
-			{
-				forms.GET("", formHandler.List)
-				forms.POST("", formHandler.Create)
-				forms.PUT("/:id", formHandler.Update)
-				forms.POST("/:id/publish", formHandler.Publish)
-				forms.DELETE("/:id", formHandler.Delete)
-			}
 		}
 
 		// Tenant admin routes
@@ -387,67 +363,6 @@ func TestE2E_TenantDepartmentManagementFlow(t *testing.T) {
 	var depts []interface{}
 	json.Unmarshal(w.Body.Bytes(), &depts)
 	t.Logf("✅ Listed %d departments (handler may return stub data)", len(depts))
-}
-
-// E2E Test 4: Form Management Flow
-func TestE2E_FormManagementFlow(t *testing.T) {
-	db := setupE2ETestDB(t)
-	defer func() {
-		db.Exec("DELETE FROM form_distributions")
-		db.Exec("DELETE FROM form_submissions")
-		db.Exec("DELETE FROM form_definitions")
-		db.Exec("DELETE FROM org_user_bonds")
-		db.Exec("DELETE FROM orgs")
-		db.Exec("DELETE FROM users")
-	}()
-
-	// Create provider user
-	user := createTestUser(t, db, "13800138000", "Provider User")
-	org := createTestOrg(t, db, "Provider Org", "Provider Organization")
-	createTestBond(t, db, org.ID, user.ID, true)
-
-	router := setupRouter(db)
-	token := generateJWTToken(t, user.ID, org.ID)
-
-	// Step 1: Create a form
-	w := httptest.NewRecorder()
-	formData := map[string]interface{}{
-		"name":        "Leave Application Form",
-		"code":        "leave_application",
-		"description": "Form for leave applications",
-		"schema":      map[string]interface{}{"fields": []interface{}{}},
-	}
-	req := httptest.NewRequest("POST", "/api/provider/forms", bytes.NewReader(mustJSON(t, formData)))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Org-ID", fmt.Sprintf("%d", org.ID))
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusCreated, w.Code, "Failed to create form: %s", w.Body.String())
-	t.Logf("✅ Form created")
-
-	// Step 2: List forms
-	w = httptest.NewRecorder()
-	req = httptest.NewRequest("GET", "/api/provider/forms", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Org-ID", fmt.Sprintf("%d", org.ID))
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	// Note: Handler may return empty list in test environment
-	var forms []interface{}
-	json.Unmarshal(w.Body.Bytes(), &forms)
-	t.Logf("✅ Listed %d forms (handler may return stub data)", len(forms))
-
-	// Step 3: Publish form
-	w = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/api/provider/forms/1/publish", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Org-ID", fmt.Sprintf("%d", org.ID))
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	t.Logf("✅ Form published")
 }
 
 // E2E Test 5: Multi-Tenant Isolation

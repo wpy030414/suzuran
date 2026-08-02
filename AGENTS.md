@@ -2,6 +2,12 @@
 
 > 本文档定义代码风格、架构约定和最佳实践。
 
+## 🎯 项目定位
+
+Suzuran Cloud 是一个 **AI 原生的多租户 SaaS 应用平台**：Agent 通过 Skill/MCP 契约直接开发并部署应用，应用运行在平台内、共享同一数据层。
+
+**非目标**：低代码拖拽平台、可视化工作流编辑器、报表设计器。
+
 ## 📐 代码风格
 
 ### Go 代码规范
@@ -28,13 +34,17 @@ internal/
 ├── repository/   # 数据访问层（GORM 操作）
 ├── model/        # GORM 模型定义
 ├── middleware/   # Gin 中间件
-└── pkg/          # 工具包（jwt, redis, dingtalk）
+├── mcp/          # MCP Server 实现（tools/resources/prompts）
+├── runtime/      # 应用运行时（沙箱、生命周期管理）
+├── oauth/        # OAuth IdP 实现（WebAuthn、钉钉、token）
+└── pkg/          # 工具包（jwt, redis, webauthn）
 ```
 
 **规则**：
 - Handler 不得直接调用 Repository
 - Service 不得直接访问 `*gin.Context`
 - Model 只包含结构体定义，不含业务逻辑
+- MCP tool 内部必须做权限校验（基于 OAuth token）
 
 ## 🏛️ 架构原则
 
@@ -56,59 +66,112 @@ Handler → Service → Repository → Database
 
 ```go
 orgRepo := repository.NewOrgRepository(db)
-orgService := service.NewOrgService(orgRepo, deptRepo, bondRepo)
+orgService := service.NewOrgService(orgRepo)
 orgHandler := provider.NewOrgHandler(orgService)
 ```
 
 **禁止**使用全局变量或 init() 函数隐式初始化。
 
-## 🔒 安全规范
+### MCP Server 设计
 
-### 租户隔离
+- 每个 tool 是一个独立的函数，有明确的输入/输出 JSON Schema
+- Tool 内部必须做权限校验（从 OAuth token 中提取 org_id/user_id）
+- Tool 之间不能直接调用，必须通过 Service 层
+- 所有 tool 调用都记录审计日志
 
-所有查询必须包含 `org_id` 过滤：
+### 应用运行时设计
 
-```go
-func (r *OrgUserBondRepository) GetByOrgID(ctx context.Context, orgID int) ([]*model.OrgUserBond, error) {
-    var bonds []*model.OrgUserBond
-    err := r.db.WithContext(ctx).Where("org_id = ?", orgID).Find(&bonds).Error
-    return bonds, err
-}
-```
+- 每个应用运行在独立沙箱中（进程/容器级别隔离）
+- 应用通过 MCP Server 访问数据，不能直接连数据库
+- 应用间不能直接 HTTP 调用，必须通过 MCP 中转
+- 平台管理应用的生命周期（创建、部署、启停、升级、销毁）
+
+## 🛡️ 安全规范
+
+### 鉴权
+
+- **OAuth-only**：只支持 WebAuthn 和钉钉 OAuth 登录，不支持密码登录
+- **Token 管理**：access_token（JWT，短期）+ refresh_token（长期，可撤销）
+- **Token 存储**：前端使用 httpOnly cookie，不用 localStorage
+
+### 多租户隔离
+
+- 所有业务表必须有 `org_id` 字段
+- 所有查询必须加 `WHERE org_id = ?`（在 Repository 层强制执行）
+- 审计日志记录所有数据操作（谁、什么时候、做了什么）
+
+### 数据安全
+
+- 敏感数据加密存储（WebAuthn credential、OAuth token secret）
+- 文件存储按 org_id 前缀隔离（MinIO bucket 路径）
+- 数据库连接池按 org_id 限制（防止单租户耗尽连接）
 
 ### SQL 注入防护
 
 - **禁止**字符串拼接构建 SQL
 - **必须**使用 GORM 参数化查询或 JSONB 操作
 
-### JWT 验证
-
-所有受保护路由必须经过 `middleware.Auth()`：
-
-```go
-protected := r.Group("/api")
-protected.Use(middleware.Auth())
-protected.Use(middleware.TenantContext())
-```
-
 ## 🧪 测试规范
 
 ### 单元测试
 
+- 每个 Service 必须有对应的 `_test.go`
 - 文件命名：`{module}_test.go`
 - 覆盖率目标：80%+
 - 使用 `testify/assert` 和 `testify/require`
+- 使用 SQLite 内存数据库（`gorm.io/driver/sqlite`）
+- Mock 外部依赖（Redis、MinIO、钉钉 API）
 
 ### 集成测试
 
-- 文件位置：`backend/integration_test.go`
-- 使用 SQLite in-memory 模拟 PostgreSQL
-- 测试三端完整流程：登录 → 选择组织 → 执行业务操作
+- MCP tool 必须有集成测试（验证权限校验、数据隔离）
+- OAuth 流程必须有集成测试（WebAuthn ceremony、钉钉 OAuth）
+- 应用生命周期必须有集成测试（创建、部署、启停）
 
+### E2E 测试
+
+- 前端使用 Playwright
+- 覆盖核心流程：登录、创建应用、部署应用、访问应用
+
+## 📦 依赖管理
+
+### Go 依赖
+
+- 使用 `go mod tidy` 清理无用依赖
+- 定期更新依赖（`go get -u`）
+- 不引入重型依赖（Keycloak、Authentik 等第三方 IdP）
+
+### 前端依赖
+
+- 使用 `npm install` 安装依赖
+- 定期更新依赖（`npm update`）
+- 不引入低代码相关依赖（拖拽库、可视化工作流库）
+
+## 🚫 禁止事项
+
+- ❌ 低代码拖拽设计器（FormDesigner、widget_library）
+- ❌ 可视化工作流编辑器
+- ❌ 报表设计器
+- ❌ JSON schema 动态表单渲染
+- ❌ 密码登录（SHA256、bcrypt、argon2）
+- ❌ 第三方 IdP 集成（Keycloak、Authentik）
+- ❌ 应用直接连数据库（必须走 MCP）
+- ❌ 应用间直接 HTTP 调用（必须通过 MCP 中转）
+
+## 📝 文档规范
+
+每个模块必须有对应文档：
+
+- `README.md`：项目是什么？怎么运行？当前状态？
+- `AGENTS.md`：代码规范、架构约定（本文件）
+- `docs/PRD.md`：产品需求、功能意义
+- `docs/ARCHITECTURE.md`：架构地图、系统边界
+- `docs/DECISIONS.md`：设计决策记录
+- `docs/specs/*.md`：具体实现规范（每个 spec = 一个 Agent 任务）
 
 ## 🚀 部署检查清单
 
-- [ ] `.env` 中修改敏感配置（DB_PASSWORD、JWT_SECRET）
+- [ ] `.env` 中修改敏感配置（DB_PASSWORD、JWT_SECRET、WEBAUTHN_RP_ID）
 - [ ] 运行 `docker-compose up -d`
 - [ ] 验证健康检查：`curl http://localhost:8888/health`
 - [ ] 检查日志：`docker-compose logs -f backend`

@@ -1,23 +1,25 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/xrl/suzuran-cloud/internal/middleware"
+	"github.com/xrl/suzuran-cloud/internal/handler"
+	"github.com/xrl/suzuran-cloud/internal/handler/auth"
 	"github.com/xrl/suzuran-cloud/internal/handler/provider"
 	"github.com/xrl/suzuran-cloud/internal/handler/tenant"
-	"github.com/xrl/suzuran-cloud/internal/handler/auth"
-	"github.com/xrl/suzuran-cloud/internal/handler"
+	"github.com/xrl/suzuran-cloud/internal/middleware"
+	dingtalkpkg "github.com/xrl/suzuran-cloud/internal/pkg/dingtalk"
+	redisclient "github.com/xrl/suzuran-cloud/internal/pkg/redis"
 	"github.com/xrl/suzuran-cloud/internal/repository"
 	"github.com/xrl/suzuran-cloud/internal/service"
-	dingtalkpkg "github.com/xrl/suzuran-cloud/internal/pkg/dingtalk"
 	"github.com/xrl/suzuran-cloud/internal/storage"
-	redisclient "github.com/xrl/suzuran-cloud/internal/pkg/redis"
 )
 
 func main() {
@@ -32,18 +34,11 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Initialize repositories
+	// Initialize repositories (multi-tenant core only)
 	orgRepo := repository.NewOrgRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
 	deptRepo := repository.NewDepartmentRepository(db)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	wfDefRepo := repository.NewWorkflowDefinitionRepository(db)
-	wfInstRepo := repository.NewWorkflowInstanceRepository(db)
-	wfApproveRepo := repository.NewWorkflowApprovalRepository(db)
-	reportRepo := repository.NewReportDefinitionRepository(db)
 
 	// Initialize MinIO client
 	minioClient, err := storage.NewMinIOClient(
@@ -59,21 +54,11 @@ func main() {
 	// Initialize DingTalk client and bot
 	_ = dingtalkpkg.NewBotClient(dingtalkpkg.NewBotConfig())
 
-	// Initialize services
+	// Initialize services (multi-tenant core only)
 	authService := service.NewAuthService(userRepo, bondRepo, orgRepo)
 	orgService := service.NewOrgService(orgRepo, deptRepo, bondRepo)
 	deptService := service.NewDepartmentService(deptRepo, bondRepo)
 	userService := service.NewUserService(userRepo, bondRepo)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	appService := service.NewApplicationService(
-		repository.NewApplicationRepository(db),
-		repository.NewFormRepository(db),
-		repository.NewViewRepository(db),
-	)
-	_ = service.NewWorkflowEngine(wfDefRepo, wfInstRepo, wfApproveRepo)
-	_ = service.NewReportService(db, reportRepo)
-	_ = service.NewApplicationPageService(repository.NewApplicationPageRepository(db), repository.NewWidgetLibraryRepository(db))
-	_ = service.NewAgentSkillService()
 	_ = service.NewDingTalkSyncService(
 		dingtalkpkg.NewClient(dingtalkpkg.NewConfig()),
 		orgRepo, userRepo, deptRepo, bondRepo,
@@ -83,21 +68,40 @@ func main() {
 	// Initialize handlers with dependency injection
 	authHandler := auth.NewHandler(authService)
 	orgHandler := provider.NewOrgHandler(orgService)
-	appHandler := provider.NewApplicationHandler(appService)
 	orgMemberHandler := provider.NewOrgMemberHandler(deptService, userService)
 	deptHandler := tenant.NewDepartmentHandler(deptService, userService)
 	userHandler := tenant.NewUserHandler(userService)
-	formHandler := tenant.NewFormHandler(formService)
 	fileHandler := handler.NewFileHandler(minioClient)
 	dingHandler := handler.NewDingTalkHandler()
-
-	// Initialize audit middleware
-	_ = middleware.NewAuditMiddleware(service.NewAuditService(db))
+	systemHandler := handler.NewSystemHandler(db)
+	logHandler := handler.NewLogHandler("logs/app.log", 1000)
 
 	r := gin.Default()
 
+	// Store server start time
+	serverStartTime := time.Now().Format(time.RFC3339)
+
 	// CORS middleware
 	r.Use(middleware.CORS())
+
+	// Logging middleware
+	r.Use(func(c *gin.Context) {
+		c.Set("serverStartTime", serverStartTime)
+		startTime := time.Now()
+		c.Next()
+
+		entry := map[string]interface{}{
+			"method":   c.Request.Method,
+			"path":     c.Request.URL.Path,
+			"status":   c.Writer.Status(),
+			"duration": time.Since(startTime).String(),
+			"ip":       c.ClientIP(),
+		}
+
+		logHandler.AddLog("info",
+			fmt.Sprintf("%s %s %d %s", c.Request.Method, c.Request.URL.Path, c.Writer.Status(), time.Since(startTime)),
+			entry)
+	})
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
@@ -121,8 +125,17 @@ func main() {
 	protected := r.Group("/api")
 	protected.Use(middleware.Auth())
 	protected.Use(middleware.TenantContext())
-	auditMW := middleware.NewAuditMiddleware(service.NewAuditService(db)); protected.Use(auditMW.RecordOperations())
+	auditMW := middleware.NewAuditMiddleware(service.NewAuditService(db))
+	protected.Use(auditMW.RecordOperations())
 	{
+		// System monitoring routes
+		systemGroup := protected.Group("/system")
+		{
+			systemGroup.GET("/metrics", systemHandler.GetSystemMetrics)
+			systemGroup.GET("/database/metrics", systemHandler.GetDatabaseMetrics)
+			systemGroup.GET("/logs", logHandler.GetLogs)
+		}
+
 		// Provider portal routes
 		providerGroup := protected.Group("/provider")
 		{
@@ -147,29 +160,6 @@ func main() {
 				orgUsers.POST("", orgMemberHandler.CreateMember)
 				orgUsers.PUT("/:userId", orgMemberHandler.UpdateMember)
 				orgUsers.DELETE("/:userId", orgMemberHandler.RemoveMember)
-			}
-
-			// Application management routes (new architecture)
-			apps := providerGroup.Group("/applications")
-			{
-				apps.GET("", appHandler.List)
-				apps.POST("", appHandler.Create)
-				apps.GET("/:id", appHandler.GetByID)
-				apps.POST("/:id/copy", appHandler.Copy)
-				apps.POST("/:id/update", appHandler.UpdateVersion)
-				apps.DELETE("/:id", appHandler.Delete)
-				apps.POST("/:id/distribute", appHandler.Distribute)
-
-				// Form management (nested under application)
-				apps.GET("/:id/forms", appHandler.ListForms)
-				apps.POST("/:id/forms", appHandler.CreateForm)
-				apps.GET("/:id/forms/:formId", appHandler.GetForm)
-				apps.PUT("/:id/forms/:formId", appHandler.UpdateForm)
-				apps.DELETE("/:id/forms/:formId", appHandler.DeleteForm)
-				// View management (nested under application)
-				apps.GET("/:id/views", appHandler.ListViews)
-				apps.POST("/:id/views", appHandler.CreateView)
-				apps.DELETE("/:id/views/:viewId", appHandler.DeleteView)
 			}
 		}
 
@@ -199,27 +189,12 @@ func main() {
 				dingtalk.GET("/status", dingHandler.GetSyncStatus)
 			}
 
-			// File upload routes (tenant can upload files)
+			// File upload routes
 			files := tenantGroup.Group("/files")
 			{
 				files.POST("/upload", fileHandler.Upload)
 				files.GET("/:key/download", fileHandler.Download)
 				files.DELETE("/:key", fileHandler.Delete)
-			}
-
-			// Form submissions (tenant can view but not create forms)
-			formSubs := tenantGroup.Group("/form-submissions")
-			{
-				formSubs.GET("/:code", formHandler.GetSubmissions)
-			}
-		}
-
-		// End user routes - form submission
-		userGroup := protected.Group("/user")
-		{
-			userForms := userGroup.Group("/forms")
-			{
-				userForms.POST("/:code/submit", formHandler.Submit)
 			}
 		}
 	}

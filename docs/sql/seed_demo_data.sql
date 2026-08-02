@@ -2,6 +2,7 @@
 -- Suzuran Cloud 演示数据种子脚本
 
 -- 清空现有数据（开发环境）
+DELETE FROM departments;
 DELETE FROM org_user_bonds;
 DELETE FROM users;
 DELETE FROM orgs;
@@ -10,6 +11,7 @@ DELETE FROM orgs;
 ALTER SEQUENCE IF EXISTS users_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS orgs_id_seq RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS org_user_bonds_id_seq RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS departments_id_seq RESTART WITH 1;
 
 -- 插入服务商用户（使用 SHA256 哈希，与后端 Go 代码一致）
 INSERT INTO users (id, phone, password_hash, salt, name, created_at, updated_at)
@@ -105,3 +107,4 @@ VALUES (
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
 SELECT setval('orgs_id_seq', (SELECT MAX(id) FROM orgs));
 SELECT setval('org_user_bonds_id_seq', (SELECT MAX(id) FROM org_user_bonds));
+SELECT setval('departments_id_seq', (SELECT MAX(id) FROM departments));

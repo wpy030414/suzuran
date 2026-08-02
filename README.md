@@ -1,29 +1,34 @@
 # Suzuran Cloud ☁️
 
-> 一个基于 Go + Gin + PostgreSQL + Redis + MinIO 的多租户低代码平台
+> 一个 AI 原生的多租户 SaaS 应用平台
 
 ## 🎯 项目简介
 
-Suzuran Cloud 是一个企业级多租户 SaaS 平台，支持服务商、租户管理员、普通用户三端隔离访问。核心能力包括：
+Suzuran Cloud 是一个 AI 原生的多租户 SaaS 平台，Agent 通过 Skill/MCP 契约直接开发并部署应用，应用运行在平台内、共享同一数据层。
+
+**核心能力**：
 
 - **多租户架构**：共享数据库 + org_id 字段隔离，租户间数据完全独立
-- **低代码表单**：拖拽式设计器，JSONB schema 存储，动态提交与查询
-- **工作流引擎**：可视化流程编排，状态机驱动的审批流转
-- **报表设计器**：完整 Vue template，支持数据展示、表单写入、流程发起
-- **钉钉集成**：OAuth 认证、组织架构同步、Bot 消息通知
-- **文件存储**：MinIO S3 兼容，支持大文件上传/下载/预签名 URL
-- **审计日志**：自动记录所有操作，支持异步写入与查询
+- **MCP Server**：严格的数据访问契约，应用通过 MCP 读写共享数据
+- **应用运行时**：沙箱隔离、生命周期管理、资源配额
+- **OAuth IdP**：平台自建，支持 WebAuthn（Passkey）和钉钉 OAuth 登录
+- **Skill/MCP 契约**：Agent 据此开发应用，契约稳定、不猜测
+
+**为什么不是低代码**：Vibe Coding 的兴起让拖拽设计器失去优势，Agent 生成的代码可以任意复杂，而低代码产出的应用受限于平台 DSL。Suzuran Cloud 从"让人拖拽搭应用"转向"让 Agent 写代码跑应用"。
 
 ## 🏗️ 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| **后端** | Go 1.26 + Gin + GORM + go-redis + minio-go |
+| **后端** | Go 1.26 + Gin + GORM |
 | **数据库** | PostgreSQL 15 (JSONB + GIN 索引) |
-| **缓存** | Redis 7 (JWT token 存储) |
+| **缓存** | Redis 7 (Session、MCP 限流) |
 | **对象存储** | MinIO (S3 兼容) |
-| **前端** | Vue 3 + Vite + Vuetify + Pinia（三端独立应用） |
-| **容器化** | Docker Compose AIO |
+| **鉴权** | OAuth2 + WebAuthn (go-webauthn) |
+| **MCP** | mark3labs/mcp-go |
+| **应用运行时** | Docker / gVisor（待定） |
+| **前端** | Vue 3 + Vite + Vuetify + Pinia |
+| **容器化** | Docker Compose |
 
 ## 📦 快速开始
 
@@ -31,6 +36,7 @@ Suzuran Cloud 是一个企业级多租户 SaaS 平台，支持服务商、租户
 
 - Docker & Docker Compose v2+
 - Go 1.26+（可选，用于本地开发）
+- Node.js 18+（前端开发）
 
 ### 启动服务
 
@@ -42,8 +48,17 @@ cd suzuran-cloud
 # 复制环境变量
 cp .env.example .env
 
-# 启动所有服务
-docker-compose up -d
+# 启动基础设施（PostgreSQL、Redis、MinIO）
+docker-compose up -d postgres redis minio
+
+# 启动后端
+cd backend
+go run cmd/api/main.go
+
+# 启动前端（另一个终端）
+cd frontend/app
+npm install
+npm run dev
 ```
 
 ### 访问端口
@@ -52,68 +67,54 @@ docker-compose up -d
 |------|------|------|
 | Backend API | `8888` | Go + Gin RESTful API |
 | PostgreSQL | `5432` | 主数据库 |
-| Redis | `6379` | Token 缓存 |
+| Redis | `6379` | Session 缓存 |
 | MinIO Console | `9001` | 对象存储管理界面 |
-| Provider Portal | `3001` | 服务商端（待实现） |
-| Tenant Admin | `3002` | 租户管理端（待实现） |
-| User Portal | `3003` | 用户端（待实现） |
+| Frontend | `3000` | 三端门户（provider/tenant/user） |
 
-## 📚 API 文档
+## 🚀 当前状态（2026-08-02）
 
-### 认证流程
+项目正在从低代码平台转型为 AI 原生应用平台。
 
-```
-POST /api/auth/login → 获取预登录 token 和组织列表
-POST /api/auth/select-org → 选择组织并获取 JWT
-```
+**已完成**：
+- ✅ 多租户基座（org/user/bond/dept + JWT + tenant 中间件）
+- ✅ 三层架构（handler/service/repository/model）
+- ✅ 基础 API（组织管理、用户管理、部门管理）
 
-### 三端路由
+**待清理**：
+- ⏳ 低代码资产（拖拽设计器、工作流引擎、报表设计器、动态表单）
 
-| 前缀 | 角色 | 权限 |
-|------|------|------|
-| `/api/provider/*` | 服务商 | 管理所有租户、创建/分发应用 |
-| `/api/tenant/*` | 租户管理员 | 管理本组织用户、部门、查看报表 |
-| `/api/user/*` | 普通用户 | 提交表单、查看个人数据 |
+**待建设**：
+- ⏳ OAuth IdP（WebAuthn + 钉钉 OAuth）
+- ⏳ MCP Server（数据共享层）
+- ⏳ 应用运行时（沙箱隔离、生命周期管理）
+- ⏳ Skill/MCP 契约文档
 
-完整 API 文档见 [docs/api/README.md](docs/api/README.md)
+## 📚 文档
 
-## 🗂️ 项目结构
+- [PRD](docs/PRD.md) — 产品需求文档
+- [ARCHITECTURE](docs/ARCHITECTURE.md) — 架构地图
+- [DECISIONS](docs/DECISIONS.md) — 设计决策记录
+- [AGENTS](AGENTS.md) — 开发规范
+- [Specs](docs/specs/) — 具体实现规范
 
-```
-suzuran-cloud/
-├── backend/                    # Go 后端
-│   ├── cmd/api/main.go        # 入口文件（DI + 路由）
-│   ├── internal/
-│   │   ├── handler/           # HTTP 处理器
-│   │   ├── service/           # 业务逻辑
-│   │   ├── repository/        # 数据访问层
-│   │   ├── model/             # GORM 模型
-│   │   ├── middleware/        # 中间件
-│   │   ├── pkg/               # 工具包（jwt, redis, dingtalk）
-│   │   └── storage/           # MinIO 封装
-│   └── go.mod
-├── docs/
-│   ├── sql/init.sql           # 数据库初始化脚本
-│   └── backend/TODO.md        # 后端待办清单
-├── frontend/                   # 前端三端（待实现）
-│   ├── provider-portal/
-│   ├── tenant-admin-portal/
-│   └── user-portal/
-├── docker-compose.yml          # AIO 编排
-└── README.md                   # 本文档
-```
+## 🛡️ 安全
 
-## 🔐 安全特性
-
-- **JWT 认证**：HS256 签名，24h TTL，Redis 黑名单
-- **租户隔离**：中间件强制注入 org_id，Repository 层统一过滤
-- **密码加密**：bcrypt 哈希，加盐存储
-- **审计日志**：所有写操作自动记录到 audit_logs 表
-- **CORS 配置**：默认允许所有来源，生产环境需限制
+- **OAuth-only**：只支持 WebAuthn 和钉钉 OAuth，不支持密码登录
+- **多租户隔离**：所有业务表有 `org_id` 字段，查询自动加 `WHERE org_id = ?`
+- **审计日志**：所有数据操作都有记录（谁、什么时候、做了什么）
 
 ## 🧪 测试
 
 ```bash
+# 后端单元测试
 cd backend
 go test ./... -v -race
+
+# 前端 E2E 测试
+cd frontend/app
+npx playwright test
 ```
+
+## 📄 License
+
+MIT

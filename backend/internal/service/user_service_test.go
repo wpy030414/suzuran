@@ -184,10 +184,16 @@ func TestUserService_RemoveMember(t *testing.T) {
 	bond := &model.OrgUserBond{OrgID: org.ID, UserID: u.ID}
 	require.NoError(t, db.Create(bond).Error)
 
+	// Create a second user as the current user (remover must be different from removee)
+	currentUser := &model.User{Phone: "13800000021", Name: "Remover", PasswordHash: "h", Salt: ""}
+	require.NoError(t, db.Create(currentUser).Error)
+	currentBond := &model.OrgUserBond{OrgID: org.ID, UserID: currentUser.ID, IsAdmin: true}
+	require.NoError(t, db.Create(currentBond).Error)
+
 	svc := NewUserService(userRepo, bondRepo)
 
 	ctx := context.Background()
-	err := svc.RemoveMember(ctx, org.ID, u.ID)
+	err := svc.RemoveMember(ctx, org.ID, u.ID, currentUser.ID)
 	require.NoError(t, err)
 
 	// Bond should be gone

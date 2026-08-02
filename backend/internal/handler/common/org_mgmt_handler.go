@@ -274,7 +274,15 @@ func (h *OrgMgmtHandler) RemoveMember(c *gin.Context) {
 		return
 	}
 	userID, _ := strconv.Atoi(c.Param("userId"))
-	if err := h.userService.RemoveMember(c.Request.Context(), orgID, userID); err != nil {
+
+	// Get the current user's ID from context (set by auth middleware)
+	currentUserID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	if err := h.userService.RemoveMember(c.Request.Context(), orgID, userID, currentUserID.(int)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

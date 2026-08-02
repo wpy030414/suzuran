@@ -1,11 +1,11 @@
 # Suzuran Cloud 前端待办清单
 
-> 本文档记录前端实现的完整进度，采用**单页应用（SPA）+ 角色路由守卫**架构。
+> 本文档记录 AI 原生应用平台的前端实施进度。
 
 ## 🎯 项目结构
 
 ```
-frontend/app/                 # 统一单页应用（三端共用一个端口）
+frontend/app/                 # 统一单页应用（三端共用）
 ├── src/
 │   ├── views/                # 页面组件
 │   │   ├── Home.vue          # 首页
@@ -19,27 +19,35 @@ frontend/app/                 # 统一单页应用（三端共用一个端口）
 │   │   ├── ProviderLayout.vue
 │   │   ├── TenantLayout.vue
 │   │   └── UserLayout.vue
+│   ├── components/           # 共享组件
+│   │   └── org/              # 组织相关组件（DepartmentManager、MemberManager）
 │   ├── stores/               # Pinia 状态管理
 │   │   └── auth.ts           # 认证 Store
+│   ├── api/                  # API 客户端
+│   │   ├── client.ts         # Axios 实例
+│   │   ├── auth.ts           # 认证 API
+│   │   ├── org.ts            # 组织 API
+│   │   ├── user.ts           # 用户 API
+│   │   └── department.ts     # 部门 API
 │   ├── router/               # Vue Router 配置
 │   │   └── index.ts          # 路由 + 守卫
 │   └── main.ts               # 应用入口
 └── package.json
 ```
 
-## ✅ 已完成部分
+## ✅ 已完成
 
 ### 基础设施（100%）
 - [x] **技术栈选型**
-  - [x] Vue 3 + Vite + TypeScript
-  - [x] **UI 框架：Vuetify 3（Material Design 3）** ← 唯一指定 UI 框架
-  - [x] 状态管理：Pinia
+  - [x] Vue 3.5 + Vite 8 + TypeScript 6
+  - [x] UI 框架：Vuetify 4（Material Design 3）
+  - [x] 状态管理：Pinia 4
   - [x] 路由：Vue Router 4（带路由守卫）
-  - [x] HTTP 客户端：Axios（待集成）
+  - [x] HTTP 客户端：Axios 1.18
 
-- [x] **项目脚手架初始化**
+- [x] **项目脚手架**
   - [x] `frontend/app/` 统一单页应用
-  - [x] Vuetify 3 配置（主题色、图标、组件）
+  - [x] Vuetify 配置（主题色、图标、组件）
   - [x] Pinia Store 初始化
   - [x] Vue Router 配置（角色路由守卫）
 
@@ -48,201 +56,85 @@ frontend/app/                 # 统一单页应用（三端共用一个端口）
   - [x] 路由守卫（基于用户角色：provider / tenant_admin / user）
   - [x] 三种布局组件（ProviderLayout / TenantLayout / UserLayout）
   - [x] 首页（Home.vue）展示三个入口
-  - [x] 登录页（Login.vue）基础 UI
+  - [x] 登录页（Login.vue）手机号 + 密码
 
-## ❌ 未开始部分
+### 三端门户（100%）
+- [x] **服务商端**（`/provider/*`，role=`provider`）
+  - [x] Dashboard.vue — 仪表盘（内存/磁盘/DB 监控卡片）
+  - [x] Organizations.vue — 组织列表
+  - [x] OrgDetail.vue — 组织详情（部门管理 + 成员管理）
 
-### API 集成
-- [ ] **应用管理 API**
-  - [ ] 创建应用（生成 UUID、版本号 1.0.0）
-  - [ ] 复制应用（产生新 UUID、版本号递增）
-  - [ ] 应用版本列表（同一包名多版本）
-  - [ ] 应用更新（创建新版本）
+- [x] **租户管理端**（`/tenant/*`，role=`tenant_admin`）
+  - [x] Dashboard.vue — 仪表盘
+  - [x] UserManagement.vue — 用户管理
+  - [x] DepartmentManagement.vue — 部门管理
 
-- [ ] **表单管理 API**（属于某个应用）
-  - [ ] 在应用中创建表单
-  - [ ] 表单 schema 设计器
-  - [ ] 表单版本管理
+- [x] **用户端**（`/user/*`，role=`user`）
+  - [x] Dashboard.vue — 仪表盘
 
-- [ ] **视图/报表 API**（属于某个应用）
-  - [ ] 创建表格视图
-  - [ ] 创建图表视图
-  - [ ] 创建看板视图
+### 共享组件（100%）
+- [x] `components/org/DepartmentManager.vue` — 部门管理
+- [x] `components/org/DepartmentTreeNode.vue` — 部门树节点
+- [x] `components/org/MemberManager.vue` — 成员管理
 
-### 应用设计器
-- [ ] **应用管理界面**
-  - [ ] 应用列表（按包名分组显示版本）
-  - [ ] 创建新应用对话框
-  - [ ] 复制应用功能
-  - [ ] 版本对比和更新
+### 测试（100%）
+- [x] Playwright E2E 测试框架
+- [x] 登录测试（login.spec.ts）
+- [x] 仪表盘测试（dashboard.spec.ts）
+- [x] 组织管理测试（organizations.spec.ts、org-detail.spec.ts、org-settings*.spec.ts）
+- [x] 路由守卫测试（remove-self-protection.spec.ts）
 
-- [ ] **表单设计器**（基于 Vuetify）
-  - [ ] 拖拽式表单字段设计
-  - [ ] 字段属性配置面板
-  - [ ] 表单预览功能
+## ⏳ 待建设（按 Spec 编号）
 
-- [ ] **视图设计器**
-  - [ ] 表格视图配置
-  - [ ] 图表类型选择和数据绑定
-  - [ ] 看板视图配置
-  - [ ] Select 下拉选择（`v-select`，支持单选 / 多选 / 远程搜索）
-  - [ ] Table 表格（`v-data-table`，支持分页 / 排序 / 筛选 / 行内编辑）
-  - [ ] Modal 对话框（`v-dialog`，支持确认框 / 表单弹窗 / 详情弹窗）
-  - [ ] Card 卡片（`v-card`，支持信息卡片 / 统计卡片）
-  - [ ] Tabs 标签页（`v-tabs`，支持横向 / 纵向）
-  - [ ] Breadcrumb 面包屑（`v-breadcrumbs`）
-  - [ ] Pagination 分页器（`v-pagination`）
-  - [ ] DatePicker 日期选择器（`v-date-picker`）
+### Spec 02: OAuth IdP 前端（2-3 天）
+- [ ] 重写 Login.vue — 移除密码登录，添加 WebAuthn + 钉钉 OAuth 按钮
+- [ ] 新增 Register.vue — WebAuthn 注册页面（`navigator.credentials.create()`）
+- [ ] 新增 `api/oauth.ts` — OAuth API 客户端
+  - [ ] `beginWebAuthnLogin()`、`finishWebAuthnLogin()`
+  - [ ] `beginWebAuthnRegister()`、`finishWebAuthnRegister()`
+  - [ ] `getDingTalkAuthorizeURL()`
+- [ ] 更新 `stores/auth.ts` — 适配 OAuth 流程（authorization_code + token 刷新）
+- [ ] 更新路由守卫 — 处理 OAuth 回调
 
-- [ ] **业务组件**（基于 Vuetify 封装的业务逻辑）
-  - [ ] OrgSelector 组织选择器（Vuetify `v-autocomplete` + 租户上下文）
-  - [ ] DepartmentTree 部门树形选择器（Vuetify `v-treeview`）
-  - [ ] UserPicker 用户选择器（Vuetify `v-select` + 搜索过滤）
-  - [ ] FormRenderer 动态表单渲染器（JSON schema → Vuetify 组件映射）
-  - [ ] WorkflowViewer 工作流状态查看器（Vuetify `v-timeline`）
-  - [ ] FileUploader 文件上传组件（MinIO 集成 + Vuetify `v-file-input`）
-  - [ ] DingTalkLogin 钉钉登录组件（Vuetify `v-card` + OAuth 流程）
+### Spec 03: MCP 相关前端（1-2 天）
+- [ ] 新增 MCP Tools 浏览页面（服务商端，展示可用 tools 和 schema）
+- [ ] 新增 MCP 调用日志页面（审计日志可视化）
 
-- [ ] **布局组件**（Vuetify 布局系统封装）
-  - [ ] Header 顶部导航栏（`v-app-bar`）
-  - [ ] Sidebar 侧边栏菜单（`v-navigation-drawer`）
-  - [ ] Footer 页脚（`v-footer`）
-  - [ ] Layout 标准布局模板（`v-app` 封装）
+### Spec 04: 应用管理前端（3-5 天）
+- [ ] 新增 Application 数据模型（新定义，非低代码的 application）
+- [ ] 重写 Applications.vue — 应用列表（名称、版本、状态、资源使用）
+- [ ] 新增 AppDetail.vue — 应用详情
+  - [ ] 配置编辑（app.json）
+  - [ ] 路由配置
+  - [ ] MCP scopes 配置
+  - [ ] 部署历史
+  - [ ] 资源使用图表（CPU/内存/DB 连接）
+  - [ ] 日志查看
+  - [ ] 启动/停止/重启按钮
+- [ ] 新增 `api/application.ts` — 应用管理 API
+- [ ] 新增 `stores/application.ts` — 应用状态管理
+- [ ] 更新 ProviderLayout — 添加"应用管理"导航项
 
-### 服务商端 (`frontend/provider-portal/`)
+## ❌ 已移除（低代码资产）
 
-**核心功能：组织管理、表单设计器、应用管理**
+- ~~FormDesigner.vue — 拖拽式表单设计器~~
+- ~~Applications.vue — 低代码应用管理~~
+- ~~ApplicationDetail.vue — 低代码应用详情~~
+- ~~FormSubmission.vue — 动态表单提交~~
+- ~~components/form-designer/ — 拖拽设计器组件（5 个）~~
+- ~~components/application/ — 应用分发对话框~~
+- ~~components/view/ — 视图创建对话框~~
+- ~~stores/form.ts、application.ts~~
+- ~~api/form.ts、application.ts、view.ts~~
+- ~~types/form-schema.ts、view-config.ts~~
+- ~~E2E 测试：form-designer.spec.ts、applications.spec.ts~~
 
-- [ ] **登录与认证**
-  - [ ] 登录页面（手机号 + 密码）
-  - [ ] Token 自动刷新机制
-  - [ ] 权限路由守卫
+## 📋 技术债务
 
-- [ ] **组织管理模块**
-  - [ ] 组织列表页面（表格 + 分页 + 搜索）
-  - [ ] 创建组织对话框
-  - [ ] 编辑组织信息页面
-  - [ ] 删除组织确认流程
-
-- [ ] **表单设计器（核心功能）**
-  - [ ] 拖拽式表单设计器主界面
-    - [ ] 左侧组件库面板（Input / Select / Radio / Checkbox / Date / Number 等）
-    - [ ] 中间画布区域（可拖拽排序）
-    - [ ] 右侧属性配置面板（字段名、标签、验证规则、默认值）
-  - [ ] 表单预览功能
-  - [ ] 表单 schema 导入/导出
-  - [ ] 表单版本管理
-
-- [ ] **表单管理模块**
-  - [ ] 表单定义列表
-  - [ ] 表单发布/下架操作
-  - [ ] 表单提交数据查看
-  - [ ] 表单分享链接生成
-
-- [ ] **工作流设计器**
-  - [ ] 流程图编辑器（基于 vue-flow / x6）
-  - [ ] 节点配置面板（审批人、条件分支）
-  - [ ] 流程实例监控页面
-
-- [ ] **报表设计器**
-  - [ ] 数据源配置页面
-  - [ ] 报表模板设计器
-  - [ ] 报表预览与导出
-
-### 租户管理端 (`frontend/tenant-admin-portal/`)
-
-**核心功能：用户管理、部门管理、钉钉同步**
-
-- [ ] **登录与认证**
-  - [ ] 登录页面
-  - [ ] 组织选择页面（多组织用户）
-  - [ ] Token 管理
-
-- [ ] **用户管理模块**
-  - [ ] 用户列表页面（表格 + 分页 + 搜索）
-  - [ ] 创建用户对话框
-  - [ ] 编辑用户信息
-  - [ ] 用户角色分配
-  - [ ] 批量导入/导出用户（Excel）
-
-- [ ] **部门管理模块**
-  - [ ] 部门树形视图
-  - [ ] 创建/编辑/删除部门
-  - [ ] 部门成员管理
-  - [ ] 部门负责人设置
-  - [ ] 拖拽调整部门层级
-
-- [ ] **钉钉集成模块**
-  - [ ] 钉钉同步配置页面
-  - [ ] 同步任务执行按钮
-  - [ ] 同步日志查看
-  - [ ] 同步结果报告
-
-- [ ] **表单数据管理**
-  - [ ] 表单提交列表
-  - [ ] 提交详情查看
-  - [ ] 数据导出（Excel / CSV）
-
-- [ ] **文件管理**
-  - [ ] 文件上传页面
-  - [ ] 文件列表与管理
-  - [ ] 文件预览与下载
-
-### 用户端 (`frontend/user-portal/`)
-
-**核心功能：表单填写、工作流查看**
-
-- [ ] **登录与认证**
-  - [ ] 简化登录页面
-  - [ ] 钉钉扫码登录（可选）
-
-- [ ] **表单填写模块**
-  - [ ] 可用表单列表
-  - [ ] 动态表单渲染（基于 schema）
-  - [ ] 表单验证与提交
-  - [ ] 提交成功反馈
-
-- [ ] **我的申请模块**
-  - [ ] 我的提交列表
-  - [ ] 提交详情查看
-  - [ ] 审批进度跟踪
-  - [ ] 撤回/重新提交
-
-- [ ] **消息通知**
-  - [ ] 通知列表页面
-  - [ ] 通知详情查看
-  - [ ] 已读/未读标记
-
-## ✅ 已完成部分
-
-### 后端 API（100%）
-- [x] 服务商端 API（组织 CRUD、表单管理）
-- [x] 租户管理端 API（用户管理、部门管理、钉钉同步）
-- [x] 用户端 API（表单提交、数据查询）
-- [x] JWT 认证中间件
-- [x] 多租户隔离支持
-- [x] 文件上传 API（MinIO）
-- [x] 完整的 Repository/Service/Handler 层测试（200 个测试全部通过）
-- [x] E2E 集成测试（5 个端到端场景）
-
-## 🎯 下一步优先级
-
-1. **应用管理基础** ← 当前最优先
-   - 创建应用 API 和界面
-   - 实现 UUID 生成和版本管理
-   - 应用复制/分发功能
-
-2. **表单设计器（应用内）**
-   - 在应用中创建多个表单
-   - 拖拽式表单字段设计
-   - 表单 schema 存储
-
-3. **视图设计器（应用内）**
-   - 表格视图配置
-   - 图表视图配置
-   - 看板视图配置
-
-4. **应用版本管理**
-   - 同一包名多版本展示
-   - 应用更新（产生新 UUID）
-   - 版本对比功能
+- [ ] 修复 `stores/auth.ts` — `initFromStorage()` 未被调用（刷新页面后状态丢失）
+- [ ] 改进 `api/client.ts` — 401/403 应该走 router 而非 `window.location.href`
+- [ ] 添加 Token 刷新机制（OAuth 实现后一并处理）
+- [ ] 移除登录页硬编码演示账号（`13800138000 / password123`）
+- [ ] 配置 `playwright.config.ts`（baseURL、webServer、trace）
+- [ ] 添加前端单元测试（vitest）
+- [ ] 工程化加固：路径别名、env 多环境、bundle 分析、lint

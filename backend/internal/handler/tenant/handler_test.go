@@ -271,153 +271,20 @@ func TestUserHandler_Delete(t *testing.T) {
 	userSvc := service.NewUserService(userRepo, bondRepo)
 	h := NewUserHandler(userSvc)
 
+	// Create the target user and bond so RemoveMember has something to remove
+	target := &model.User{Phone: "13800000030", Name: "DeleteMe", PasswordHash: "h"}
+	require.NoError(t, db.Create(target).Error)
+	bond := &model.OrgUserBond{OrgID: org.ID, UserID: target.ID}
+	require.NoError(t, db.Create(bond).Error)
+
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("org_id", org.ID)
-	c.Request = httptest.NewRequest("DELETE", "/api/tenant/users/1", nil)
-	c.Params = []gin.Param{{Key: "userId", Value: "1"}}
+	c.Set("user_id", 999) // current user (different from target)
+	c.Request = httptest.NewRequest("DELETE", "/api/tenant/users/"+fmt.Sprint(target.ID), nil)
+	c.Params = []gin.Param{{Key: "userId", Value: fmt.Sprint(target.ID)}}
 
 	h.RemoveMember(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-// --- Form Handler Tests (unchanged) ---
-
-func TestFormHandler_Submit(t *testing.T) {
-	db := setupTenantTestDB(t)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	handler := NewFormHandler(formService)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	body := mustTenantJSON(t, map[string]interface{}{
-		"field1": "value1",
-		"field2": 123,
-	})
-	c.Request = httptest.NewRequest("POST", "/api/tenant/forms/test-form/submit", bytes.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = []gin.Param{{Key: "code", Value: "test-form"}}
-
-	handler.Submit(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestFormHandler_GetSubmissions(t *testing.T) {
-	db := setupTenantTestDB(t)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	handler := NewFormHandler(formService)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/api/tenant/forms/test-form/submissions", nil)
-	c.Params = []gin.Param{{Key: "code", Value: "test-form"}}
-
-	handler.GetSubmissions(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestFormHandler_List(t *testing.T) {
-	db := setupTenantTestDB(t)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	handler := NewFormHandler(formService)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/api/tenant/forms", nil)
-
-	handler.List(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestFormHandler_Create(t *testing.T) {
-	db := setupTenantTestDB(t)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	handler := NewFormHandler(formService)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	body := mustTenantJSON(t, map[string]string{
-		"name": "Test Form",
-		"code": "test_form",
-	})
-	c.Request = httptest.NewRequest("POST", "/api/tenant/forms", bytes.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	handler.Create(c)
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
-
-func TestFormHandler_Publish(t *testing.T) {
-	db := setupTenantTestDB(t)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	handler := NewFormHandler(formService)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/api/tenant/forms/1/publish", nil)
-	c.Params = []gin.Param{{Key: "id", Value: "1"}}
-
-	handler.Publish(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestFormHandler_Delete(t *testing.T) {
-	db := setupTenantTestDB(t)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	handler := NewFormHandler(formService)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", "/api/tenant/forms/1", nil)
-	c.Params = []gin.Param{{Key: "id", Value: "1"}}
-
-	handler.Delete(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestFormHandler_Update(t *testing.T) {
-	db := setupTenantTestDB(t)
-	formDefRepo := repository.NewFormDefinitionRepository(db)
-	formSubRepo := repository.NewFormSubmissionRepository(db)
-	distRepo := repository.NewFormDistributionRepository(db)
-	formService := service.NewFormService(formDefRepo, formSubRepo, distRepo)
-	handler := NewFormHandler(formService)
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	body := mustTenantJSON(t, map[string]string{
-		"name": "Updated Form",
-	})
-	c.Request = httptest.NewRequest("PUT", "/api/tenant/forms/1", bytes.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = []gin.Param{{Key: "id", Value: "1"}}
-
-	handler.Update(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }

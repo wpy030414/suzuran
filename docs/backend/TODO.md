@@ -1,81 +1,94 @@
 # Suzuran Cloud 后端待办清单
 
-> 本文档记录后端实现的完整进度，基于初始构思的 AGENT_PLAN.md 进行核对。
+> 本文档记录 AI 原生应用平台的后端实施进度。
 
-## ✅ 已完成部分
+## ✅ 已完成
 
-### Phase 1: 基础架构（100%）
+### 多租户基座（100%）
 - [x] Go 项目骨架（cmd、internal、pkg 目录结构）
-- [x] GORM 模型定义（Org、User、OrgUserBond、Department 等 15 个模型）
-- [x] Repository 层（14 个文件，完整 CRUD + 特殊查询）
-- [x] Service 层（13 个服务：auth、org、department、form、workflow、report、notification、audit、app_page、agent_skill、dingtalk_sync）
+- [x] GORM 模型定义（Org、User、OrgUserBond、Department、AuditLog、DingTalkSyncLog）
+- [x] Repository 层（org、user、bond、department、dingtalk_sync_log）
+- [x] Service 层（auth、org、department、user、dingtalk_sync）
 - [x] Middleware 层（auth、tenant context、CORS、permissions、audit）
-- [x] Handler 层（7 个 handler 文件，覆盖三端路由）
+- [x] Handler 层（auth、provider/org、provider/org_member、tenant/user、tenant/department）
 - [x] Pkg 层（jwt、password、redis、dingtalk client/bot_client）
-- [x] Main.go（完整依赖注入 + 路由配置）
+- [x] Main.go（依赖注入 + 路由配置）
 - [x] JWT 认证中间件 + Redis token 存储
 - [x] 租户上下文中间件
+- [x] 文件存储（MinIO 集成）
+- [x] 系统监控（内存/磁盘/DB 连接池指标）
+- [x] 日志系统（内存环形缓冲 + 文件落盘）
 
-### Phase 2: 核心业务模块（90%）
-- [x] 服务商端 API（组织管理：CRUD + 表单管理）
-- [x] 租户管理端 API（用户管理、部门管理、钉钉同步、文件上传）
-- [x] 用户端 API（表单提交）
-- [ ] 文件上传功能（MinIO 集成已存在，但未在 main.go 中完全接线）
+### 数据库（100%）
+- [x] 初始化脚本（docs/sql/init.sql）— 仅含多租户核心表
+- [x] 演示数据种子（docs/sql/seed_demo_data.sql）
+- [x] JSONB 类型兼容（PostgreSQL jsonb + SQLite text fallback）
 
-### Phase 3: 低代码表单设计器（80%）
-- [x] 表单定义 CRUD API
-- [x] 表单 schema 存储（JSONB）
-- [x] 动态表单提交 API
-- [x] FormDistribution 分发机制
-- [ ] 表单设计器 CLI 工具（生成 JSON schema）
-- [ ] 表单渲染引擎（服务端渲染 HTML）
+### 测试（100%）
+- [x] 所有 Service 单元测试
+- [x] 所有 Repository 单元测试
+- [x] Handler 层单元测试
+- [x] Middleware 单元测试
+- [x] E2E 集成测试（auth flow、org management、department management、multi-tenant isolation）
 
-### Phase 4: 工作流引擎（70%）
-- [x] 工作流定义 CRUD API
-- [x] 流程实例管理
-- [x] 节点状态机实现（WorkflowEngine.StartWorkflow/Approve）
-- [ ] 审批流转逻辑（占位实现，approver 硬编码为 userID=1）
-- [ ] 工作流定义导出工具（JSON/YAML）
+## ⏳ 待建设（按 Spec 编号）
 
-### Phase 5: 报表与代码生成（60%）
-- [x] 报表定义 CRUD API
-- [x] 动态查询执行引擎（ReportService.ExecuteQuery）
-- [x] Application Page Service（Vue template 支持）
-- [x] Agent Skill Service（报表/表单模板生成）
-- [ ] CRUD 代码生成器 CLI（`internal/crudgen/` 存在但未集成）
-- [ ] 报表导出引擎（PDF/Excel 服务端生成）
+### Spec 02: OAuth IdP（5-7 天）
+- [ ] WebAuthn credential 数据模型
+- [ ] OAuth client 数据模型
+- [ ] OAuth token 数据模型
+- [ ] WebAuthn 注册/登录 ceremony
+- [ ] 钉钉 OAuth 完整实现（authorization_code 流程）
+- [ ] OAuth2 端点（/oauth/authorize、/oauth/token、/oauth/revoke）
+- [ ] Token 管理（RS256 JWT + refresh token）
+- [ ] OAuth 中间件（替换现有 JWT 中间件）
+- [ ] 移除密码登录（users 表删除 password_hash/salt）
+- [ ] 前端登录页更新（WebAuthn + 钉钉按钮）
 
-## ❌ 缺失部分
+### Spec 03: MCP Server（7-10 天）
+- [ ] MCP Server 核心（mark3labs/mcp-go）
+- [ ] 基础数据 tools（org/user/department CRUD）
+- [ ] 文件存储 tools（upload/download/presigned URL）
+- [ ] 审计日志 tools（query/log）
+- [ ] 数据查询 tools（query/mutate/subscribe）
+- [ ] 权限校验（基于 OAuth token）
+- [ ] Rate limiting（Redis）
+- [ ] MCP HTTP 端点
+- [ ] MCP resources（schema 文档）
+- [ ] MCP prompts（Agent 调用指南）
 
-### 基础设施
-- [ ] **Docker Compose 配置**（PostgreSQL + Redis + MinIO + Backend）
-- [ ] **数据库初始化脚本**（docs/sql/init.sql 建表语句 + 索引 + 示例数据）
-- [ ] `.env.example` 环境变量模板
-- [ ] `backend/Dockerfile` 后端容器化配置
+### Spec 04: 应用运行时（10-14 天）
+- [ ] Application 数据模型（新定义，非低代码的 application）
+- [ ] ApplicationDeployment 数据模型
+- [ ] RuntimeManager（Docker API 管理容器生命周期）
+- [ ] Sandbox（容器隔离、网络隔离、卷管理）
+- [ ] 资源配额（CPU/内存/数据库连接）
+- [ ] 应用路由（外部请求 → 应用容器）
+- [ ] 应用管理 API（create/deploy/start/stop/restart/delete/status/logs）
+- [ ] 前端应用管理页面
 
-### 钉钉集成
-- [x] DingTalk Client（OAuth getuserinfo、department/list、user/simplelist）
-- [x] DingTalk BotClient（Webhook markdown 通知）
-- [ ] DingTalk Sync Service 完整实现（当前为骨架，需接入真实钉钉 API）
+### Spec 05: Skill/MCP 契约文档（3-5 天）
+- [ ] MCP tools JSON Schema
+- [ ] OAuth 流程文档
+- [ ] 应用 SDK 文档
+- [ ] 数据模型 Schema（org/user/department）
+- [ ] 应用清单 Schema
+- [ ] 示例应用（hello-world）
 
-### 测试增强
-- [ ] Handler 层高级测试（边界条件、并发场景）
-- [ ] 性能基准测试（Benchmark）
-- [ ] 压力测试（Load testing）
+## ❌ 已移除（低代码资产）
 
-### 其他
-- [ ] Scheduler 任务调度器（gocron v2 定时任务：清理过期数据、健康检查）
-- [ ] PageExecutionEngine 四种动作完整实现（submit_form、start_workflow、approve、query_data）
-- [ ] 审计日志完整链路（AuditMiddleware → AuditService → audit_logs 表）
-- [ ] API 文档生成（Swagger/OpenAPI）
-- [ ] 版本管理与 Changelog 自动化
+- ~~FormDefinition、FormSubmission、FormDistribution~~
+- ~~WorkflowDefinition、WorkflowInstance、WorkflowApproval~~
+- ~~Application（低代码版）、ApplicationPage、WidgetLibrary~~
+- ~~ReportDefinition~~
+- ~~FormService、ApplicationService、WorkflowEngine、ReportService~~
+- ~~ApplicationHandler、FormHandler~~
+- ~~crudgen 代码生成器~~
 
-## 🎯 下一步优先级
+## 📋 技术债务
 
-1. **补 Docker Compose + 数据库初始化 SQL** ← 当前正在做
-2. **修复 main.go 中未接线的服务**（MinIO、Scheduler、PageExecutionEngine）
-3. **完善 DingTalk Sync Service 真实实现**
-4. **补充 Handler 层高级测试** ← 提升测试质量
-5. **编写根目录 README.md** ← 接下来做
-6. **编写 AGENTS.md 设计规范** ← 接下来做
-7. **API 文档生成（Swagger/OpenAPI）** ← 文档化
+- [ ] 统一密码哈希（当前 auth_service 用 SHA256，pkg/password 用 bcrypt，但 bcrypt 未被调用）
+- [ ] JWT secret 配置化（当前硬编码在 pkg/jwt/jwt.go）
+- [ ] Auth 中间件移除开发态 token fallback（`jwt_token_for_user_X_org_Y`）
+- [ ] Permission 中间件挂载到路由（RequireOrgAdmin/RequireDeptManager 定义了但未用）
+- [ ] 钉钉 Sync Service 完整实现（当前为骨架）

@@ -163,7 +163,45 @@ func (s *UserService) UpdateMember(ctx context.Context, orgID, userID int, name,
 }
 
 // RemoveMember removes a user from an organization (does not delete the global User).
-func (s *UserService) RemoveMember(ctx context.Context, orgID, userID int) error {
+// Protection rules:
+// 1. Users cannot remove themselves (only other admins can remove them)
+// 2. Cannot remove the last admin from an organization
+func (s *UserService) RemoveMember(ctx context.Context, orgID, userID, currentUserID int) error {
+	// Get the current user's info to check if they're removing themselves
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return errors.New("user not found")
+	}
+
+	// Rule 1: Prevent users from removing themselves
+	if userID == currentUserID {
+		return errors.New("cannot remove yourself from this organization")
+	}
+
+	// Check all bonds in the organization
+	bonds, err := s.bondRepo.GetByOrgID(ctx, orgID)
+	if err != nil {
+		return errors.New("failed to check organization bonds")
+	}
+
+	// Count total admins and check if the target user is an admin
+	isTargetAdmin := false
+	adminCount := 0
+
+	for _, bond := range bonds {
+		if bond.IsAdmin {
+			adminCount++
+			if bond.UserID == userID {
+				isTargetAdmin = true
+			}
+		}
+	}
+
+	// Rule 2: Prevent removing the last admin
+	if isTargetAdmin && adminCount <= 1 {
+		return errors.New("cannot remove yourself: you are the last admin in this organization")
+	}
+
 	return s.bondRepo.DeleteByOrgAndUser(ctx, orgID, userID)
 }
 
