@@ -240,6 +240,7 @@ func (m *RuntimeManager) createAndStartContainer(ctx context.Context, app *model
 		fmt.Sprintf("ORG_ID=%d", app.OrgID),
 		"MCP_ENDPOINT=http://backend:8888/mcp",
 		fmt.Sprintf("PORT=%d", app.Port),
+		fmt.Sprintf("OAUTH_TOKEN=%s", app.OAuthToken),
 	}
 
 	cmd := strings.Fields(app.Entrypoint)

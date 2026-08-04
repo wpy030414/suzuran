@@ -83,9 +83,16 @@ func (h *AppHandler) Delete(c *gin.Context) {
 }
 
 // Deploy handles POST /api/provider/apps/:appId/deploy
+// Extracts the caller's OAuth token and injects it into the container
+// so the app can authenticate to the MCP server.
 func (h *AppHandler) Deploy(c *gin.Context) {
 	appID := c.Param("appId")
-	deployment, err := h.appService.DeployApp(c.Request.Context(), appID)
+	// Extract the raw Bearer token from the Authorization header
+	oauthToken := ""
+	if auth := c.GetHeader("Authorization"); len(auth) > 7 && auth[:7] == "Bearer " {
+		oauthToken = auth[7:]
+	}
+	deployment, err := h.appService.DeployApp(c.Request.Context(), appID, oauthToken)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

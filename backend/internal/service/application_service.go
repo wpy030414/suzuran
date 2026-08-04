@@ -166,7 +166,9 @@ func (s *ApplicationService) DeleteApp(ctx context.Context, id string) error {
 }
 
 // DeployApp deploys an application (creates and starts container).
-func (s *ApplicationService) DeployApp(ctx context.Context, id string) (*model.ApplicationDeployment, error) {
+// oauthToken is injected into the container as the OAUTH_TOKEN env var
+// so the app can authenticate to the MCP server.
+func (s *ApplicationService) DeployApp(ctx context.Context, id string, oauthToken string) (*model.ApplicationDeployment, error) {
 	app, err := s.appRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get application: %w", err)
@@ -177,6 +179,7 @@ func (s *ApplicationService) DeployApp(ctx context.Context, id string) (*model.A
 	if s.runtime == nil {
 		return nil, errors.New("runtime manager not available")
 	}
+	app.OAuthToken = oauthToken
 	return s.runtime.DeployApp(ctx, app)
 }
 

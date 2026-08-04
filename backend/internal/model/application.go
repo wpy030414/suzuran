@@ -24,6 +24,7 @@ type Application struct {
 	DBConnQuota int      `json:"dbConnQuota"` // 10
 	MCPScopes   StringArray `gorm:"type:jsonb" json:"mcpScopes,omitempty"`
 	Routes      JSONB     `gorm:"type:jsonb" json:"routes,omitempty"`
+	OAuthToken  string    `json:"oauthToken,omitempty" gorm:"-"` // not persisted; injected at deploy time
 	Status      string    `gorm:"default:created" json:"status"` // created, building, running, stopped, error
 	ContainerID string    `json:"containerId,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
