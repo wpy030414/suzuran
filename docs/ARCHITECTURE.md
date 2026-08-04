@@ -68,19 +68,29 @@
 ### 2. MCP Server
 
 平台暴露的 MCP Server 是应用访问数据的唯一通道：
-- **Tools**：定义好的数据操作（CRUD + 查询 + 文件操作）
-- **Resources**：应用可以读取的只读资源（如 schema 文档、配置）
-- **Prompts**：平台提供的提示模板（帮助 Agent 理解如何调用）
+- **Tools**（23 个）：组织 CRUD（5）、用户管理（4）、部门管理（7）、文件存储（5）、审计（2）
+- **Resources**（4 个 schema）：org、user、department、application 的 JSON Schema 文档
+- **Prompts**（9 个）：Agent 调用指南（list-organizations, create-user, manage-departments, upload-file, query-audit-logs, authentication, develop-app, mcp-tools-catalog, data-query）
 
 MCP Server 内部做权限校验：每个 tool 调用都检查 OAuth token 中的 org_id/user_id/role。
 
 ### 3. Application Runtime
 
-应用运行在平台管理的沙箱中：
-- **隔离**：每个应用一个独立进程/容器，不能直接访问其他应用的内存/文件
+应用运行在平台管理的 Docker 容器中：
+- **隔离**：每个应用一个独立容器，不能直接访问其他应用的内存/文件
 - **通信**：应用间不直接调用，通过 MCP Server 中转（数据共享）
 - **生命周期**：平台管理应用的创建、部署、升级、销毁
 - **资源**：每个应用有 CPU/内存/数据库连接配额，超出则限流或拒绝
+- **鉴权注入**：部署时自动将 OAUTH_TOKEN 注入容器环境变量，应用通过 SDK 自动携带
+
+### 3.5 @suzuran/sdk
+
+平台提供的 Node.js SDK，Agent 用它开发应用：
+- **零外部依赖**：只用 Node.js 原生 `http` 模块
+- **MCPClient**：JSON-RPC 2.0 客户端，自动从 `OAUTH_TOKEN` 环境变量注入 Bearer token
+- **Router**：轻量 HTTP 路由（路径参数、查询参数、JSON body）
+- **SuzuranApp**：组合 Router + MCPClient，`createApp()` 工厂函数
+- **环境变量**：自动读取 `APP_ID`、`ORG_ID`、`PORT`、`MCP_ENDPOINT`、`OAUTH_TOKEN`
 
 ### 4. Multi-tenant Data Isolation
 
@@ -135,11 +145,18 @@ MCP Server 内部做权限校验：每个 tool 调用都检查 OAuth token 中�
 
 ## 演化路径
 
-当前（2026-08）：多租户基座已成型，低代码资产待清理，MCP/运行时/WebAuthn 待建设。
+当前（2026-08-04）：Agent 接入能力已就绪，平台处于「等应用」阶段。
 
-下一步：
-1. 清理低代码资产（拖拽设计器、工作流引擎等）
-2. 建设 OAuth IdP（WebAuthn + 钉钉 OAuth）
-3. 建设 MCP Server（基础数据 + 文件 + 审计）
-4. 建设应用运行时（沙箱隔离 + 生命周期管理）
-5. 发布 Skill/MCP 契约文档
+**已完成**：
+1. ✅ 清理低代码资产（拖拽设计器、工作流引擎等）
+2. ✅ 建设 OAuth IdP（WebAuthn + 钉钉 OAuth）
+3. ✅ 建设 MCP Server（23 tools + 9 prompts + 4 schema resources）
+4. ✅ 建设应用运行时（Docker 沙箱隔离 + 生命周期管理 + OAUTH_TOKEN 注入）
+5. ✅ 发布 Skill/MCP 契约文档 v1.0.0
+6. ✅ 实现 @suzuran/sdk v1.0.0（Agent 一行代码接入）
+
+**下一步**：
+1. 开发首批业务应用（验证端到端流程）
+2. 跨应用数据共享场景示例
+3. 应用详情页增强（部署历史、日志查看 UI）
+4. 单元测试补充

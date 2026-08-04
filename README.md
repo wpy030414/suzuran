@@ -4,15 +4,13 @@
 
 ## 🎯 项目简介
 
-Suzuran Cloud 是一个 AI 原生的多租户 SaaS 平台，Agent 通过 Skill/MCP 契约直接开发并部署应用，应用运行在平台内、共享同一数据层。
+Suzuran Cloud 是一个 **AI 原生的多租户 SaaS 应用平台**：Agent 通过 Skill/MCP 契约直接开发并部署应用，应用运行在平台内、共享同一数据层。
 
-**核心能力**：
+**核心价值主张**：
 
-- **多租户架构**：共享数据库 + org_id 字段隔离，租户间数据完全独立
-- **MCP Server**：严格的数据访问契约，应用通过 MCP 读写共享数据
-- **应用运行时**：沙箱隔离、生命周期管理、资源配额
-- **OAuth IdP**：平台自建，支持 WebAuthn（Passkey）和钉钉 OAuth 登录
-- **Skill/MCP 契约**：Agent 据此开发应用，契约稳定、不猜测
+- **对 Agent**：一行代码接入（`import { createApp } from '@suzuran/sdk'`），零依赖 SDK，自动鉴权，23 个标准化 MCP tools 覆盖组织/用户/部门/文件/审计全场景
+- **对企业**：统一身份认证（WebAuthn + 钉钉 OAuth），组织架构自动同步，应用间数据共享（无数据孤岛），全链路审计可追溯
+- **对服务商**：容器化沙箱隔离，资源配额管理，MCP 契约平台，Agent 赋能生态
 
 **为什么不是低代码**：Vibe Coding 的兴起让拖拽设计器失去优势，Agent 生成的代码可以任意复杂，而低代码产出的应用受限于平台 DSL。Suzuran Cloud 从"让人拖拽搭应用"转向"让 Agent 写代码跑应用"。
 
@@ -79,16 +77,17 @@ npm run dev
 - ✅ 多租户基座（org/user/bond/dept + JWT + tenant 中间件）
 - ✅ 三层架构（handler/service/repository/model）
 - ✅ 基础 API（组织管理、用户管理、部门管理）
-- ✅ OAuth IdP（WebAuthn + 钉钉 OAuth）
-- ✅ MCP Server（22 个工具，数据共享层）
-- ✅ 应用运行时（Docker 容器管理，生命周期管理，沙箱隔离，资源配额）
+- ✅ OAuth IdP（WebAuthn + 钉钉 OAuth，无密码登录）
+- ✅ MCP Server（23 个 tools + 9 个 prompts + 4 个 schema resources）
+- ✅ 应用运行时（Docker 容器管理，生命周期管理，沙箱隔离，资源配额，OAUTH_TOKEN 注入）
 - ✅ 应用启动台前端（三端共用 OA start page）
 - ✅ Skill/MCP 契约文档（v1.0.0，含示例应用）
+- ✅ **@suzuran/sdk v1.0.0**（零依赖 Node.js SDK，MCP 客户端 + HTTP 路由 + 生命周期管理）
 
 **待建设**：
 - ⏳ 应用详情页增强（部署历史、日志查看 UI）
-- ⏳ MCP resources / prompts 补充
 - ⏳ 单元测试补充
+- ⏳ 跨应用数据查询场景示例
 
 ## 📚 文档
 

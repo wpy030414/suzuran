@@ -151,3 +151,75 @@ WebAuthn OAuth 的实现有两种选择：
 **独立数据库**：隔离性最强，但管理复杂、成本高。放弃原因：租户数量预期不会太大（企业级 SaaS），共享数据库足够。
 
 **独立 schema**：隔离性中等，需要动态切换 schema。放弃原因：GORM 对多 schema 的支持不完善，容易出 bug。
+
+---
+
+## 2026-08-04: SDK 采用零依赖 Node.js 原生方案
+
+### 背景
+
+Agent 开发应用需要一个 SDK 来接入平台。SDK 的技术选型有三种：
+1. 零依赖（Node.js 原生 `http` 模块）
+2. 轻量框架（Express/Koa）
+3. 全功能框架（NestJS/Fastify）
+
+### 决策
+
+选择方案 1：零依赖，只用 Node.js 内置模块。
+
+### 原因
+
+1. **最小化冲突**：Agent 写的应用可能依赖各种库，SDK 如果引入 Express/Koa，可能和应用的依赖冲突。零依赖意味着 SDK 不会和应用打架。
+
+2. **够用了**：MCP 调用就是一个 `fetch()` 调 JSON-RPC 2.0，HTTP 路由用原生 `http.createServer()` 加几行路径匹配就够。不需要框架的中间件体系。
+
+3. **安装快**：`npm install @suzuran/sdk` 零网络请求（除了 SDK 本身），Agent 开发的应用镜像构建更快。
+
+4. **TypeScript 优先**：输出 `.d.ts` 声明文件，Agent 拿到完整类型提示，但不强制应用用 TypeScript。
+
+### 后果
+
+- SDK 功能范围有限（路由、MCP 客户端、生命周期），不提供数据库 ORM、模板引擎等
+- 需要 Agent 自己处理复杂的 HTTP 场景（文件上传、WebSocket 等）
+- ESM-only 输出，不支持 CommonJS `require()`
+
+### 替代方案
+
+**Express/Koa**：更丰富的中间件生态。放弃原因：和应用依赖冲突风险大，SDK 应该尽量透明。
+
+**NestJS/Fastify**：性能更好、功能更全。放弃原因：太重，Agent 写个简单的 CRUD 应用不需要学一个框架。
+
+---
+
+## 2026-08-04: OAUTH_TOKEN 通过部署链路注入容器
+
+### 背景
+
+应用运行在容器里需要调用 MCP Server，MCP Server 要求 OAuth token 鉴权。token 如何到达容器？
+1. 部署时从调用者的 Authorization header 提取，注入容器环境变量
+2. 平台为每个应用签发长期 service token
+3. 应用自己实现 OAuth 流程获取 token
+
+### 决策
+
+选择方案 1：部署时从调用者提取 Bearer token，通过 Handler→Service→Runtime 链路注入容器。
+
+### 原因
+
+1. **最小改动**：不需要新建 token 签发机制，直接复用现有的 OAuth token。
+
+2. **安全可追溯**：token 有 15 分钟过期时间，审计日志记录的是部署者的身份，不是某个匿名 service account。
+
+3. **不污染数据模型**：在 `Application` model 上用 `gorm:"-"` 标记为不持久化字段，不写数据库，只在部署时短暂传递。
+
+### 后果
+
+- 每次部署/重启需要前端传 Bearer token（已有，无需额外工作）
+- token 15 分钟后过期，长期运行的应用需要 token 刷新机制（待建设）
+- 不能离线部署（需要有效的 OAuth session）
+
+### 替代方案
+
+**平台签发 service token**：应用有自己独立的长期 token。放弃原因：需要新建 token 签发/管理/轮换机制，复杂度高，等应用生态成熟后再考虑。
+
+**应用自登录**：应用启动时自己走 OAuth 流程。放弃原因：应用不应该知道登录凭据，违反最小权限原则。

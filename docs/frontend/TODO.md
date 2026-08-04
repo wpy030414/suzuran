@@ -98,9 +98,9 @@ frontend/app/                 # 统一单页应用（三端共用）
 - [x] 新增 `views/Callback.vue` — 钉钉 OAuth 回调处理页
 - [x] 更新路由守卫 — 处理 OAuth 回调
 
-### Spec 03: MCP 相关前端（1-2 天）
-- [ ] 新增 MCP Tools 浏览页面（服务商端，展示可用 tools 和 schema）
-- [ ] 新增 MCP 调用日志页面（审计日志可视化）
+### Spec 03: MCP 相关前端（✅ 已完成）
+- [x] 新增 MCP Tools 浏览页面（服务商端，展示可用 tools 和 schema）
+- [x] 新增 MCP 调用日志页面（审计日志可视化）
 
 ### Spec 04: 应用管理前端（✅ 已完成）
 - [x] 新增 `api/application.ts` — 应用管理 API 客户端（通用 + provider 管理）
@@ -115,7 +115,7 @@ frontend/app/                 # 统一单页应用（三端共用）
 - [x] 更新 UserLayout — 添加导航抽屉 + "应用启动台"导航项
 - [x] 更新路由 — 三端各自注册 `apps` 子路由
 - [x] 后端新增 `GET /api/apps` 通用端点（返回当前 org 应用，非 provider 隐藏 containerId）
-- [ ] 应用详情页（AppDetail.vue）— 待后续增强
+- [x] 应用详情页（AppDetail.vue）— 已完成（应用信息、状态、生命周期控制、环境变量、日志）
 
 ## ❌ 已移除（低代码资产）
 
@@ -133,10 +133,20 @@ frontend/app/                 # 统一单页应用（三端共用）
 
 ## 📋 技术债务
 
-- [ ] 修复 `stores/auth.ts` — `initFromStorage()` 未被调用（刷新页面后状态丢失）
-- [ ] 改进 `api/client.ts` — 401/403 应该走 router 而非 `window.location.href`
-- [ ] 添加 Token 刷新机制（OAuth 实现后一并处理）
-- [ ] 移除登录页硬编码演示账号（`13800138000 / password123`）
-- [ ] 配置 `playwright.config.ts`（baseURL、webServer、trace）
+- [x] ~~修复 `stores/auth.ts` — `initFromStorage()` 未被调用~~（main.ts:40 已调用，TODO 过期）
+- [x] ~~改进 `api/client.ts` — 401/403 应该走 router 而非 `window.location.href`~~（已实现 token 刷新 + `auth:logout` 自定义事件，TODO 过期）
+- [x] ~~添加 Token 刷新机制~~（client.ts 已实现 refresh_token 流程）
+- [x] ~~移除登录页硬编码演示账号~~（Login.vue 已重写为 WebAuthn，无密码引用；E2E 改用虚拟认证器全真流程）
+- [x] ~~配置 `playwright.config.ts`~~（已配置 baseURL/webServer/trace，workers=1 串行避免 credential 竞态）
 - [ ] 添加前端单元测试（vitest）
 - [ ] 工程化加固：路径别名、env 多环境、bundle 分析、lint
+
+## 📦 SDK（@suzuran/sdk）
+
+- [x] **v1.0.0 实现**（`packages/sdk/`）
+  - [x] TypeScript 编写，零外部依赖（Node.js 原生 http 模块）
+  - [x] `createApp()` 工厂函数 + SuzuranApp 类
+  - [x] MCPClient：JSON-RPC 2.0 客户端（自动携带 OAuth token）
+  - [x] Router：轻量 HTTP 路由（支持路径参数、查询参数、请求体解析）
+  - [x] 生命周期钩子（onStart / onStop + SIGTERM 优雅关闭）
+  - [x] 自动读取环境变量（APP_ID, ORG_ID, PORT, MCP_ENDPOINT, OAUTH_TOKEN）

@@ -58,8 +58,8 @@
 - [x] 权限校验（基于 OAuth token + scope 验证）
 - [x] Rate limiting（Redis 滑动窗口限流，100 次/分钟）
 - [x] MCP HTTP 端点（POST /mcp, GET /mcp/tools）
-- [x] MCP resources（schema 文档）— 待补充
-- [x] MCP prompts（Agent 调用指南）— 待补充
+- [x] MCP resources（schema 文档：org/user/department/application JSON Schema）
+- [x] MCP prompts（9 个 Agent 调用指南：list-organizations, create-user, manage-departments, upload-file, query-audit-logs, authentication, develop-app, mcp-tools-catalog, data-query）
 - [x] 审计日志记录（每次 tool 调用自动记录）
 - [x] 跨平台编译支持（Linux/Windows/macOS）
 
@@ -72,7 +72,6 @@
 - [x] 应用路由（外部请求 → 应用容器，AppRouter 反向代理）
 - [x] 应用管理 API（create/deploy/start/stop/restart/delete/status/logs/deployments）
 - [x] DockerClient 接口抽象（跨平台编译，Windows stub / Linux 完整实现）
-- [ ] 前端应用管理页面（待 Spec 04 前端部分）
 
 ### Spec 05: Skill/MCP 契约文档（✅ 已完成）
 - [x] MCP tools JSON Schema（覆盖全部 22 个 tools，含 input/scope/role）
@@ -96,8 +95,4 @@
 
 ## 📋 技术债务
 
-- [ ] 统一密码哈希（当前 auth_service 用 SHA256，pkg/password 用 bcrypt，但 bcrypt 未被调用）
-- [ ] JWT secret 配置化（当前硬编码在 pkg/jwt/jwt.go）
-- [ ] Auth 中间件移除开发态 token fallback（`jwt_token_for_user_X_org_Y`）
-- [ ] Permission 中间件挂载到路由（RequireOrgAdmin/RequireDeptManager 定义了但未用）
-- [ ] 钉钉 Sync Service 完整实现（当前为骨架）
+- [ ] Permission 中间件挂载到路由（RequireOrgAdmin/RequireDeptManager 已定义并有测试，但 handler 中未使用）
