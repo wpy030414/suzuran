@@ -44,8 +44,8 @@ func TestAuthInvalidTokenFormat(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "invalid token format")
 }
 
-// TestAuthValidJWT verifies that a real signed JWT is accepted and the user
-// context (user_id, org_id, role) is populated from the claims.
+// TestAuthValidJWT verifies that a real signed JWT (RS256) is accepted and the
+// user context (user_id, org_id, role, scopes) is populated from the claims.
 func TestAuthValidJWT(t *testing.T) {
 	r := gin.New()
 	r.Use(middleware.Auth())
@@ -56,7 +56,7 @@ func TestAuthValidJWT(t *testing.T) {
 		c.Status(200)
 	})
 
-	token, err := jwt.GenerateToken(42, 7, "provider")
+	token, err := jwt.GenerateToken(42, 7, "provider", []string{"org.read"}, "https://suzuran.test", 900)
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
@@ -67,26 +67,7 @@ func TestAuthValidJWT(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-// TestAuthDevToken verifies the development fallback token format
-// (jwt_token_for_user_X_org_Y) is accepted for local development.
-func TestAuthDevToken(t *testing.T) {
-	r := gin.New()
-	r.Use(middleware.Auth())
-	r.GET("/protected", func(c *gin.Context) {
-		assert.Equal(t, 5, c.GetInt("user_id"))
-		assert.Equal(t, 3, c.GetInt("org_id"))
-		c.Status(200)
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
-	req.Header.Set("Authorization", "Bearer jwt_token_for_user_5_org_3")
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-// TestAuthGarbageToken verifies that an unparseable, non-dev token is rejected.
+// TestAuthGarbageToken verifies that an unparseable token is rejected.
 func TestAuthGarbageToken(t *testing.T) {
 	r := gin.New()
 	r.Use(middleware.Auth())

@@ -8,21 +8,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testIssuer    = "https://suzuran.test"
+	testTTLSeconds = 900
+)
+
 func TestGenerateToken_ReturnsNonEmptyString(t *testing.T) {
-	token, err := jwt.GenerateToken(1, 10, "user")
+	token, err := jwt.GenerateToken(1, 10, "user", nil, testIssuer, testTTLSeconds)
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
 }
 
 func TestVerifyToken_ValidToken(t *testing.T) {
-	token, err := jwt.GenerateToken(42, 7, "provider_admin")
+	token, err := jwt.GenerateToken(42, 7, "provider", nil, testIssuer, testTTLSeconds)
 	require.NoError(t, err)
 
 	claims, err := jwt.VerifyToken(token)
 	require.NoError(t, err)
 	assert.Equal(t, 42, claims.UserID)
 	assert.Equal(t, 7, claims.OrgID)
-	assert.Equal(t, "provider_admin", claims.Role)
+	assert.Equal(t, "provider", claims.Role)
 }
 
 func TestVerifyToken_InvalidString(t *testing.T) {
@@ -38,7 +43,7 @@ func TestVerifyToken_RandomString(t *testing.T) {
 }
 
 func TestVerifyToken_TamperedToken(t *testing.T) {
-	token, err := jwt.GenerateToken(1, 1, "user")
+	token, err := jwt.GenerateToken(1, 1, "user", nil, testIssuer, testTTLSeconds)
 	require.NoError(t, err)
 
 	// Replace the signature portion to make it invalid
@@ -54,16 +59,17 @@ func TestTokenRoundTrip(t *testing.T) {
 		userID int
 		orgID  int
 		role   string
+		scopes []string
 	}{
-		{"provider admin", 100, 200, "provider_admin"},
-		{"tenant admin", 101, 201, "tenant_admin"},
-		{"regular user", 102, 202, "user"},
-		{"zero values", 0, 0, "user"},
+		{"provider admin", 100, 200, "provider", []string{"org.read", "org.write"}},
+		{"tenant admin", 101, 201, "tenant_admin", []string{"org.read"}},
+		{"regular user", 102, 202, "user", []string{"data.read"}},
+		{"zero values", 0, 0, "user", nil},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			token, err := jwt.GenerateToken(tc.userID, tc.orgID, tc.role)
+			token, err := jwt.GenerateToken(tc.userID, tc.orgID, tc.role, tc.scopes, testIssuer, testTTLSeconds)
 			require.NoError(t, err)
 
 			claims, err := jwt.VerifyToken(token)
@@ -71,6 +77,9 @@ func TestTokenRoundTrip(t *testing.T) {
 			assert.Equal(t, tc.userID, claims.UserID)
 			assert.Equal(t, tc.orgID, claims.OrgID)
 			assert.Equal(t, tc.role, claims.Role)
+			if tc.scopes != nil {
+				assert.Equal(t, tc.scopes, claims.Scopes)
+			}
 		})
 	}
 }

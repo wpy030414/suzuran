@@ -238,7 +238,7 @@ func TestUserHandler_Update(t *testing.T) {
 
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
-	u := &model.User{Phone: "13800000001", Name: "Old", PasswordHash: "h", Salt: ""}
+	u := &model.User{Phone: "13800000010", Name: "UpdateMe"}
 	require.NoError(t, db.Create(u).Error)
 	bond := &model.OrgUserBond{OrgID: org.ID, UserID: u.ID}
 	require.NoError(t, db.Create(bond).Error)
@@ -272,7 +272,7 @@ func TestUserHandler_Delete(t *testing.T) {
 	h := NewUserHandler(userSvc)
 
 	// Create the target user and bond so RemoveMember has something to remove
-	target := &model.User{Phone: "13800000030", Name: "DeleteMe", PasswordHash: "h"}
+	target := &model.User{Phone: "13800000030", Name: "DeleteMe"}
 	require.NoError(t, db.Create(target).Error)
 	bond := &model.OrgUserBond{OrgID: org.ID, UserID: target.ID}
 	require.NoError(t, db.Create(bond).Error)

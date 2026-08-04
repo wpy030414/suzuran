@@ -11,23 +11,16 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/xrl/suzuran-cloud/internal/handler"
-	"github.com/xrl/suzuran-cloud/internal/handler/auth"
 	"github.com/xrl/suzuran-cloud/internal/handler/provider"
 	"github.com/xrl/suzuran-cloud/internal/handler/tenant"
 	"github.com/xrl/suzuran-cloud/internal/middleware"
-	dingtalkpkg "github.com/xrl/suzuran-cloud/internal/pkg/dingtalk"
-	redisclient "github.com/xrl/suzuran-cloud/internal/pkg/redis"
+	"github.com/xrl/suzuran-cloud/internal/oauth"
 	"github.com/xrl/suzuran-cloud/internal/repository"
 	"github.com/xrl/suzuran-cloud/internal/service"
 	"github.com/xrl/suzuran-cloud/internal/storage"
 )
 
 func main() {
-	// Initialize Redis client
-	if err := redisclient.InitClient(); err != nil {
-		log.Printf("Warning: Failed to connect to Redis: %v", err)
-	}
-
 	// Initialize database
 	db, err := initDatabase()
 	if err != nil {
@@ -39,6 +32,10 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
 	deptRepo := repository.NewDepartmentRepository(db)
+	credRepo := repository.NewWebAuthnCredentialRepository(db)
+	clientRepo := repository.NewOAuthClientRepository(db)
+	tokenRepo := repository.NewOAuthTokenRepository(db)
+	sessionRepo := repository.NewOAuthSessionRepository(db)
 
 	// Initialize MinIO client
 	minioClient, err := storage.NewMinIOClient(
@@ -51,28 +48,28 @@ func main() {
 		log.Printf("Warning: Failed to initialize MinIO: %v", err)
 	}
 
-	// Initialize DingTalk client and bot
-	_ = dingtalkpkg.NewBotClient(dingtalkpkg.NewBotConfig())
+	// Load OAuth IdP config
+	oauthCfg := oauth.LoadConfig()
 
-	// Initialize services (multi-tenant core only)
-	authService := service.NewAuthService(userRepo, bondRepo, orgRepo)
+	// Initialize services
 	orgService := service.NewOrgService(orgRepo, deptRepo, bondRepo)
 	deptService := service.NewDepartmentService(deptRepo, bondRepo)
 	userService := service.NewUserService(userRepo, bondRepo)
-	_ = service.NewDingTalkSyncService(
-		dingtalkpkg.NewClient(dingtalkpkg.NewConfig()),
-		orgRepo, userRepo, deptRepo, bondRepo,
-		repository.NewDingTalkSyncLogRepository(db),
-	)
+
+	webAuthnSvc, err := oauth.NewWebAuthnService(oauthCfg, userRepo, credRepo, bondRepo, orgRepo)
+	if err != nil {
+		log.Fatalf("Failed to init WebAuthn service: %v", err)
+	}
+	dingTalkSvc := oauth.NewDingTalkService(oauthCfg, userRepo, bondRepo, orgRepo)
+	oauthSvc := oauth.NewOAuthService(oauthCfg, tokenRepo, sessionRepo, clientRepo, userRepo, bondRepo, orgRepo)
 
 	// Initialize handlers with dependency injection
-	authHandler := auth.NewHandler(authService)
+	oauthHandler := oauth.NewHandler(webAuthnSvc, dingTalkSvc, oauthSvc)
 	orgHandler := provider.NewOrgHandler(orgService)
 	orgMemberHandler := provider.NewOrgMemberHandler(deptService, userService)
 	deptHandler := tenant.NewDepartmentHandler(deptService, userService)
 	userHandler := tenant.NewUserHandler(userService)
 	fileHandler := handler.NewFileHandler(minioClient)
-	dingHandler := handler.NewDingTalkHandler()
 	systemHandler := handler.NewSystemHandler(db)
 	logHandler := handler.NewLogHandler("logs/app.log", 1000)
 
@@ -108,20 +105,31 @@ func main() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Auth routes (public)
-	authGroup := r.Group("/api/auth")
+	// OAuth IdP routes (public — login/registration ceremonies + OAuth2 endpoints)
+	oauthGroup := r.Group("/oauth")
 	{
-		authGroup.POST("/login", authHandler.Login)
-		authGroup.POST("/select-org", authHandler.SelectOrg)
+		// WebAuthn registration
+		oauthGroup.POST("/webauthn/register/begin", oauthHandler.BeginRegistration)
+		oauthGroup.POST("/webauthn/register/finish", oauthHandler.FinishRegistration)
+
+		// WebAuthn login
+		oauthGroup.POST("/webauthn/login/begin", oauthHandler.BeginLogin)
+		oauthGroup.POST("/webauthn/login/finish", oauthHandler.FinishLogin)
+
+		// DingTalk OAuth
+		oauthGroup.GET("/dingtalk/authorize", oauthHandler.DingTalkAuthorize)
+		oauthGroup.GET("/dingtalk/callback", oauthHandler.DingTalkCallback)
+
+		// OAuth2 endpoints
+		oauthGroup.GET("/authorize", oauthHandler.Authorize)
+		oauthGroup.POST("/token", oauthHandler.Token)
+		oauthGroup.POST("/revoke", oauthHandler.Revoke)
 	}
 
-	// DingTalk OAuth routes (public callback)
-	dingtalkGroup := r.Group("/api/dingtalk")
-	{
-		dingtalkGroup.GET("/callback", dingHandler.OAuthCallback)
-	}
+	// OAuth2 discovery
+	r.GET("/.well-known/openid-configuration", oauthHandler.Metadata)
 
-	// Protected routes
+	// Protected routes (require valid OAuth access token)
 	protected := r.Group("/api")
 	protected.Use(middleware.Auth())
 	protected.Use(middleware.TenantContext())
@@ -180,13 +188,6 @@ func main() {
 				depts.PUT("/:deptId", deptHandler.UpdateDept)
 				depts.DELETE("/:deptId", deptHandler.DeleteDept)
 				depts.POST("/:deptId/manager", deptHandler.SetDeptManager)
-			}
-
-			// DingTalk sync routes
-			dingtalk := tenantGroup.Group("/dingtalk")
-			{
-				dingtalk.POST("/sync", dingHandler.SyncOrg)
-				dingtalk.GET("/status", dingHandler.GetSyncStatus)
 			}
 
 			// File upload routes

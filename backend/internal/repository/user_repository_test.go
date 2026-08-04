@@ -22,12 +22,10 @@ func TestUserRepository_Create(t *testing.T) {
 	t.Run("should create user successfully", func(t *testing.T) {
 		cleanupUsers()
 		user := &model.User{
-			Phone:        "13800138000",
-			PasswordHash: "hashed_password",
-			Salt:         "random_salt",
-			Name:         "Test User",
-			Email:        "test@example.com",
-			Position:     "Developer",
+			Phone:    "13800138000",
+			Name:     "Test User",
+			Email:    "test@example.com",
+			Position: "Developer",
 		}
 		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
@@ -36,25 +34,17 @@ func TestUserRepository_Create(t *testing.T) {
 		assert.Equal(t, "Test User", user.Name)
 	})
 
-	t.Run("should fail on duplicate phone", func(t *testing.T) {
+	t.Run("should allow multiple users with empty phone (OAuth-only)", func(t *testing.T) {
 		cleanupUsers()
-		user1 := &model.User{
-			Phone:        "13900139000",
-			PasswordHash: "hash1",
-			Salt:         "salt1",
-			Name:         "User One",
-		}
+		user1 := &model.User{Name: "User One"}
 		err := repo.Create(context.Background(), user1)
 		require.NoError(t, err)
 
-		user2 := &model.User{
-			Phone:        "13900139000",
-			PasswordHash: "hash2",
-			Salt:         "salt2",
-			Name:         "User Two",
-		}
+		user2 := &model.User{Name: "User Two"}
 		err = repo.Create(context.Background(), user2)
-		assert.Error(t, err)
+		// OAuth users may not have a phone at all; empty phone must not collide.
+		assert.NoError(t, err)
+		assert.NotZero(t, user2.ID)
 	})
 }
 
@@ -64,11 +54,9 @@ func TestUserRepository_GetByID(t *testing.T) {
 
 	t.Run("should return user when exists", func(t *testing.T) {
 		user := &model.User{
-			Phone:        "13800138001",
-			PasswordHash: "hash",
-			Salt:         "salt",
-			Name:         "Get User",
-			Email:        "get@example.com",
+			Phone: "13800138001",
+			Name:  "Get User",
+			Email: "get@example.com",
 		}
 		require.NoError(t, repo.Create(context.Background(), user))
 
@@ -93,10 +81,8 @@ func TestUserRepository_GetByPhone(t *testing.T) {
 
 	t.Run("should return user by phone", func(t *testing.T) {
 		user := &model.User{
-			Phone:        "13800138002",
-			PasswordHash: "hash",
-			Salt:         "salt",
-			Name:         "Phone User",
+			Phone: "13800138002",
+			Name:  "Phone User",
 		}
 		require.NoError(t, repo.Create(context.Background(), user))
 
@@ -120,11 +106,9 @@ func TestUserRepository_Update(t *testing.T) {
 
 	t.Run("should update user successfully", func(t *testing.T) {
 		user := &model.User{
-			Phone:        "13800138003",
-			PasswordHash: "hash",
-			Salt:         "salt",
-			Name:         "Original Name",
-			Email:        "original@example.com",
+			Phone: "13800138003",
+			Name:  "Original Name",
+			Email: "original@example.com",
 		}
 		require.NoError(t, repo.Create(context.Background(), user))
 
@@ -149,10 +133,8 @@ func TestUserRepository_Delete(t *testing.T) {
 
 	t.Run("should delete user successfully", func(t *testing.T) {
 		user := &model.User{
-			Phone:        "13800138004",
-			PasswordHash: "hash",
-			Salt:         "salt",
-			Name:         "Delete User",
+			Phone: "13800138004",
+			Name:  "Delete User",
 		}
 		require.NoError(t, repo.Create(context.Background(), user))
 
@@ -176,9 +158,9 @@ func TestUserRepository_List(t *testing.T) {
 
 	t.Run("should list all users ordered by ID", func(t *testing.T) {
 		cleanupUsers()
-		user1 := &model.User{Phone: "13800138010", PasswordHash: "h", Salt: "s", Name: "User A"}
-		user2 := &model.User{Phone: "13800138011", PasswordHash: "h", Salt: "s", Name: "User B"}
-		user3 := &model.User{Phone: "13800138012", PasswordHash: "h", Salt: "s", Name: "User C"}
+		user1 := &model.User{Phone: "13800138010", Name: "User A"}
+		user2 := &model.User{Phone: "13800138011", Name: "User B"}
+		user3 := &model.User{Phone: "13800138012", Name: "User C"}
 
 		require.NoError(t, repo.Create(context.Background(), user1))
 		require.NoError(t, repo.Create(context.Background(), user2))

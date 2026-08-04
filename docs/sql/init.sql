@@ -17,16 +17,15 @@ CREATE TABLE orgs (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 用户表（全局）
+-- 用户表（全局）— OAuth-only，无密码字段
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    phone VARCHAR(20) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    salt VARCHAR(255) NOT NULL,
-    name VARCHAR(255),
+    phone VARCHAR(20),
     email VARCHAR(255),
+    email_verified BOOLEAN DEFAULT FALSE,
+    name VARCHAR(255),
     position VARCHAR(255),
-    dingtalk_userid VARCHAR(100),
+    dingtalk_userid VARCHAR(100) UNIQUE,
     dingtalk_unionid VARCHAR(100),
     dingtalk_openid VARCHAR(100),
     avatar_url VARCHAR(500),
@@ -34,6 +33,73 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_dingtalk_unionid ON users(dingtalk_unionid);
+
+-- WebAuthn 凭证表（Passkey 注册）
+CREATE TABLE webauthn_credentials (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id BYTEA NOT NULL UNIQUE,
+    public_key BYTEA NOT NULL,
+    attestation_type VARCHAR(100),
+    aaguid VARCHAR(255),
+    sign_count INT DEFAULT 0,
+    transports JSONB,
+    user_id_bytes BYTEA,
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_used_at TIMESTAMP
+);
+CREATE INDEX idx_webauthn_credentials_user_id ON webauthn_credentials(user_id);
+CREATE INDEX idx_webauthn_credentials_user_id_bytes ON webauthn_credentials(user_id_bytes);
+
+-- OAuth2 客户端表（应用作为 OAuth client）
+CREATE TABLE oauth_clients (
+    id VARCHAR(64) PRIMARY KEY,
+    org_id INT REFERENCES orgs(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    client_secret VARCHAR(255) NOT NULL,
+    redirect_uris JSONB,
+    scopes JSONB,
+    confidential BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_oauth_clients_org_id ON oauth_clients(org_id);
+
+-- OAuth2 token 表（access + refresh）
+CREATE TABLE oauth_tokens (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    org_id INT,
+    client_id VARCHAR(64) NOT NULL,
+    scope VARCHAR(255),
+    refresh_token_hash VARCHAR(64),
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_oauth_tokens_user_id ON oauth_tokens(user_id);
+CREATE INDEX idx_oauth_tokens_client_id ON oauth_tokens(client_id);
+CREATE INDEX idx_oauth_tokens_refresh_hash ON oauth_tokens(refresh_token_hash);
+
+-- OAuth2 授权码会话表（authorization_code 流程）
+CREATE TABLE oauth_sessions (
+    id VARCHAR(64) PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    code_challenge VARCHAR(128),
+    code_challenge_method VARCHAR(10),
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    org_id INT,
+    client_id VARCHAR(64) NOT NULL,
+    redirect_uri TEXT,
+    scope VARCHAR(255),
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_oauth_sessions_code ON oauth_sessions(code);
+CREATE INDEX idx_oauth_sessions_client_id ON oauth_sessions(client_id);
 
 -- 组织-用户关联表
 CREATE TABLE org_user_bonds (

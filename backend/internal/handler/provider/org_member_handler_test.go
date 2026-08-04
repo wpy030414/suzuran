@@ -95,7 +95,7 @@ func TestProviderRemoveMember(t *testing.T) {
 	org := &model.Org{Name: "P-Org"}
 	require.NoError(t, db.Create(org).Error)
 
-	user := &model.User{Phone: "13800000099", Name: "Gone", PasswordHash: "h", Salt: ""}
+	user := &model.User{Phone: "13800000099", Name: "Gone"}
 	require.NoError(t, db.Create(user).Error)
 	bond := &model.OrgUserBond{OrgID: org.ID, UserID: user.ID}
 	require.NoError(t, db.Create(bond).Error)

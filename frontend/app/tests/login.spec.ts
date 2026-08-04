@@ -1,44 +1,33 @@
 import { test, expect } from '@playwright/test';
 
-test('服务商登录流程测试', async ({ page }) => {
-  // 监听控制台日志
-  page.on('console', msg => {
-    console.log(`[Browser] ${msg.text()}`);
-  });
+// OAuth-only platform: password login is gone. This test verifies the login
+// page renders the WebAuthn (Passkey) and DingTalk entry points. A real
+// WebAuthn ceremony requires a virtual authenticator setup; that's covered
+// by backend unit tests for the ceremony itself.
+test('登录页渲染 OAuth 入口（WebAuthn + 钉钉）', async ({ page }) => {
+  page.on('console', (msg) => console.log(`[Browser] ${msg.text()}`));
 
-  // 访问前端首页
-  await page.goto('http://localhost:5173');
-
-  // 点击登录链接或直接导航到登录页
   await page.goto('http://localhost:5173/login');
 
-  // 等待页面加载
-  await page.waitForSelector('input[placeholder="请输入手机号"]', { timeout: 5000 });
+  // 邮箱/用户名输入框
+  await page.waitForSelector('input[placeholder="输入注册时的邮箱或用户名"]', { timeout: 5000 });
 
-  // 填写登录表单
-  await page.getByPlaceholder('请输入手机号').fill('13800138000');
-  await page.getByPlaceholder('请输入密码').fill('password123');
+  // Passkey 登录按钮
+  await expect(page.getByRole('button', { name: /Passkey 登录/ })).toBeVisible();
 
-  // 点击登录按钮
-  await page.getByRole('button', { name: '登录' }).click();
+  // 钉钉登录按钮
+  await expect(page.getByRole('button', { name: '钉钉登录' })).toBeVisible();
 
-  // 等待一下，让异步操作完成
-  await page.waitForTimeout(3000);
+  // 注册入口
+  await expect(page.getByRole('link', { name: '注册 Passkey' })).toBeVisible();
 
-  // 检查当前 URL
-  const currentUrl = page.url();
-  console.log(`[Test] Current URL after login: ${currentUrl}`);
+  console.log('✅ 登录页 OAuth 入口渲染正常喵！');
+});
 
-  // 如果跳转到 forbidden，说明路由守卫拒绝了
-  if (currentUrl.includes('/forbidden')) {
-    console.log('[Test] ERROR: Redirected to forbidden!');
-    // 截图查看
-    await page.screenshot({ path: '/tmp/forbidden.png' });
-    throw new Error('登录后被重定向到禁止访问页面，请检查路由守卫逻辑喵～');
-  }
-
-  // 验证是否成功进入仪表盘页面
-  await expect(page.locator('h1')).toContainText(/仪表盘/, { timeout: 5000 });
-
-  console.log('✅ Playwright 测试成功喵！');
+test('注册页可从登录页到达', async ({ page }) => {
+  await page.goto('http://localhost:5173/login');
+  await page.getByRole('link', { name: '注册 Passkey' }).click();
+  await page.waitForSelector('input[placeholder="输入用户名"]', { timeout: 5000 });
+  await expect(page.getByRole('button', { name: /创建 Passkey/ })).toBeVisible();
+  console.log('✅ 注册页可达喵！');
 });

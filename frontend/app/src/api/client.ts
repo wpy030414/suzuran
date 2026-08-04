@@ -19,33 +19,74 @@ apiClient.interceptors.request.use(
     }
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error),
 )
 
-// Response interceptor - handle errors and token refresh
-apiClient.interceptors.response.use(
-  (response: AxiosResponse) => {
-    return response
-  },
-  async (error) => {
-    if (error.response) {
-      const { status } = error.response
+// Response interceptor - on 401 try a single token refresh, else clear & redirect.
+let isRefreshing = false
+let pendingRequests: Array<(token: string | null) => void> = []
 
-      if (status === 401) {
-        // Token expired or invalid
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-      } else if (status === 403) {
-        window.location.href = '/forbidden'
-      } else if (status === 404) {
-        window.location.href = '/not-found'
+apiClient.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  async (error) => {
+    const originalRequest = error.config
+    if (error.response && error.response.status === 401 && !originalRequest._retried) {
+      originalRequest._retried = true
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (!refreshToken) {
+        clearAndRedirect()
+        return Promise.reject(error)
+      }
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          pendingRequests.push((token: string | null) => {
+            if (!token) {
+              reject(error)
+              return
+            }
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(apiClient(originalRequest))
+          })
+        })
+      }
+      try {
+        isRefreshing = true
+        const params = new URLSearchParams()
+        params.set('grant_type', 'refresh_token')
+        params.set('refresh_token', refreshToken)
+        params.set('client_id', 'suzuran-spa')
+        const resp = await axios.post(`${apiClient.defaults.baseURL}/oauth/token`, params, {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        })
+        const newToken = resp.data.access_token
+        const newRefresh = resp.data.refresh_token
+        localStorage.setItem('token', newToken)
+        if (newRefresh) localStorage.setItem('refresh_token', newRefresh)
+        pendingRequests.forEach((cb) => cb(newToken))
+        pendingRequests = []
+        originalRequest.headers.Authorization = `Bearer ${newToken}`
+        return apiClient(originalRequest)
+      } catch {
+        pendingRequests.forEach((cb) => cb(null))
+        pendingRequests = []
+        clearAndRedirect()
+        return Promise.reject(error)
+      } finally {
+        isRefreshing = false
       }
     }
     return Promise.reject(error)
-  }
+  },
 )
+
+function clearAndRedirect() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('user')
+  localStorage.removeItem('scope')
+  if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+    window.location.href = '/login'
+  }
+}
 
 export default apiClient

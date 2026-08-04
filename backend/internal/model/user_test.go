@@ -36,8 +36,6 @@ func TestUserPasswordHashHiddenInJSON(t *testing.T) {
 	u := model.User{
 		ID:           1,
 		Phone:        "13800138000",
-		PasswordHash: "secret_hash_value",
-		Salt:         "some_salt",
 		Name:         "TestUser",
 	}
 

@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 
 	"github.com/xrl/suzuran-cloud/internal/model"
@@ -61,7 +59,8 @@ func (s *UserService) ListMembers(ctx context.Context, orgID int) ([]MemberView,
 }
 
 // CreateMember creates a user (if new phone) and adds them to the organization.
-func (s *UserService) CreateMember(ctx context.Context, orgID int, phone, name, password, email, position string, isAdmin bool, deptID *int, isDeptMgr bool) (*MemberView, error) {
+// Note: OAuth-only platform — members authenticate via WebAuthn/DingTalk, no password.
+func (s *UserService) CreateMember(ctx context.Context, orgID int, phone, name, email, position string, isAdmin bool, deptID *int, isDeptMgr bool) (*MemberView, error) {
 	existing, err := s.userRepo.GetByPhone(ctx, phone)
 	if err != nil {
 		return nil, err
@@ -80,15 +79,12 @@ func (s *UserService) CreateMember(ctx context.Context, orgID int, phone, name, 
 		}
 		user = existing
 	} else {
-		// Create new user with sha256 hex password
-		hash := sha256.Sum256([]byte(password))
+		// Create new user (no password — OAuth-only)
 		user = &model.User{
-			Phone:        phone,
-			Name:         name,
-			Email:        email,
-			Position:     position,
-			PasswordHash: hex.EncodeToString(hash[:]),
-			Salt:         "",
+			Phone:    phone,
+			Name:     name,
+			Email:    email,
+			Position: position,
 		}
 		if err := s.userRepo.Create(ctx, user); err != nil {
 			return nil, err
@@ -110,7 +106,9 @@ func (s *UserService) CreateMember(ctx context.Context, orgID int, phone, name, 
 }
 
 // UpdateMember updates user fields and/or bond fields for a member.
-func (s *UserService) UpdateMember(ctx context.Context, orgID, userID int, name, email, position, password string, isAdmin *bool, deptID *int, isDeptMgr *bool) (*MemberView, error) {
+// Note: OAuth-only platform — no password updates; members set up their own
+// WebAuthn credential or bind DingTalk to authenticate.
+func (s *UserService) UpdateMember(ctx context.Context, orgID, userID int, name, email, position string, isAdmin *bool, deptID *int, isDeptMgr *bool) (*MemberView, error) {
 	bond, err := s.bondRepo.GetByOrgAndUser(ctx, orgID, userID)
 	if err != nil {
 		return nil, err
@@ -136,10 +134,6 @@ func (s *UserService) UpdateMember(ctx context.Context, orgID, userID int, name,
 	}
 	if position != "" {
 		user.Position = position
-	}
-	if password != "" {
-		hash := sha256.Sum256([]byte(password))
-		user.PasswordHash = hex.EncodeToString(hash[:])
 	}
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, err

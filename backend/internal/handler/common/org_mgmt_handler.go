@@ -212,7 +212,6 @@ func (h *OrgMgmtHandler) CreateMember(c *gin.Context) {
 	var req struct {
 		Phone     string `json:"phone"`
 		Name      string `json:"name"`
-		Password  string `json:"password"`
 		Email     string `json:"email"`
 		Position  string `json:"position"`
 		IsAdmin   bool   `json:"isAdmin"`
@@ -223,7 +222,7 @@ func (h *OrgMgmtHandler) CreateMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	member, err := h.userService.CreateMember(c.Request.Context(), orgID, req.Phone, req.Name, req.Password, req.Email, req.Position, req.IsAdmin, req.DeptID, req.IsDeptMgr)
+	member, err := h.userService.CreateMember(c.Request.Context(), orgID, req.Phone, req.Name, req.Email, req.Position, req.IsAdmin, req.DeptID, req.IsDeptMgr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -246,7 +245,6 @@ func (h *OrgMgmtHandler) UpdateMember(c *gin.Context) {
 		Name      string `json:"name"`
 		Email     string `json:"email"`
 		Position  string `json:"position"`
-		Password  string `json:"password"`
 		IsAdmin   *bool  `json:"isAdmin"`
 		DeptID    *int   `json:"departmentId"`
 		IsDeptMgr *bool  `json:"isDepartmentManager"`
@@ -255,7 +253,7 @@ func (h *OrgMgmtHandler) UpdateMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	member, err := h.userService.UpdateMember(c.Request.Context(), orgID, userID, req.Name, req.Email, req.Position, req.Password, req.IsAdmin, req.DeptID, req.IsDeptMgr)
+	member, err := h.userService.UpdateMember(c.Request.Context(), orgID, userID, req.Name, req.Email, req.Position, req.IsAdmin, req.DeptID, req.IsDeptMgr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

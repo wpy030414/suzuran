@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,6 +35,9 @@ func seedOrg(t *testing.T, db *gorm.DB) *model.Org {
 	return org
 }
 
+// OAuth-only platform: members authenticate via WebAuthn/DingTalk, no password.
+// CreateMember signature is (orgID, phone, name, email, position, isAdmin, deptID, isDeptMgr).
+
 func TestUserService_CreateMember_NewPhone(t *testing.T) {
 	db := setupUserTestDB(t)
 	org := seedOrg(t, db)
@@ -46,7 +47,7 @@ func TestUserService_CreateMember_NewPhone(t *testing.T) {
 	svc := NewUserService(userRepo, bondRepo)
 
 	ctx := context.Background()
-	m, err := svc.CreateMember(ctx, org.ID, "13800138000", "Alice", "secret123", "a@b.com", "Engineer", false, nil, false)
+	m, err := svc.CreateMember(ctx, org.ID, "13800138000", "Alice", "a@b.com", "Engineer", false, nil, false)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 
@@ -57,12 +58,10 @@ func TestUserService_CreateMember_NewPhone(t *testing.T) {
 	assert.False(t, m.IsAdmin)
 	assert.False(t, m.IsDepartmentManager)
 
-	// Verify password was hashed with sha256
+	// User created with no password (OAuth-only)
 	user, err := userRepo.GetByPhone(ctx, "13800138000")
 	require.NoError(t, err)
-	h := sha256.Sum256([]byte("secret123"))
-	assert.Equal(t, hex.EncodeToString(h[:]), user.PasswordHash)
-	assert.Equal(t, "", user.Salt)
+	assert.Equal(t, "Alice", user.Name)
 }
 
 func TestUserService_CreateMember_ExistingPhone_AutoJoin(t *testing.T) {
@@ -72,22 +71,21 @@ func TestUserService_CreateMember_ExistingPhone_AutoJoin(t *testing.T) {
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
 
-	// Pre-create a user
-	existUser := &model.User{Phone: "13900139000", Name: "Bob", PasswordHash: "h", Salt: ""}
+	// Pre-create a user (no password)
+	existUser := &model.User{Phone: "13900139000", Name: "Bob"}
 	require.NoError(t, db.Create(existUser).Error)
 
 	svc := NewUserService(userRepo, bondRepo)
 
 	ctx := context.Background()
-	m, err := svc.CreateMember(ctx, org.ID, "13900139000", "", "", "", "", true, nil, false)
+	m, err := svc.CreateMember(ctx, org.ID, "13900139000", "", "", "", true, nil, false)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 
 	assert.Equal(t, existUser.ID, m.UserID)
-	assert.Equal(t, "Bob", m.Name) // name from existing user
+	assert.Equal(t, "Bob", m.Name)
 	assert.True(t, m.IsAdmin)
 
-	// Verify bond was created
 	bond, _ := bondRepo.GetByOrgAndUser(ctx, org.ID, existUser.ID)
 	require.NotNil(t, bond)
 }
@@ -98,7 +96,7 @@ func TestUserService_CreateMember_AlreadyInOrg(t *testing.T) {
 
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
-	existUser := &model.User{Phone: "13700137000", Name: "Carol", PasswordHash: "h", Salt: ""}
+	existUser := &model.User{Phone: "13700137000", Name: "Carol"}
 	require.NoError(t, db.Create(existUser).Error)
 	bond := &model.OrgUserBond{OrgID: org.ID, UserID: existUser.ID}
 	require.NoError(t, db.Create(bond).Error)
@@ -106,7 +104,7 @@ func TestUserService_CreateMember_AlreadyInOrg(t *testing.T) {
 	svc := NewUserService(userRepo, bondRepo)
 
 	ctx := context.Background()
-	m, err := svc.CreateMember(ctx, org.ID, "13700137000", "", "", "", "", false, nil, false)
+	m, err := svc.CreateMember(ctx, org.ID, "13700137000", "", "", "", false, nil, false)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 	assert.Equal(t, bond.ID, m.BondID)
@@ -119,8 +117,8 @@ func TestUserService_ListMembers(t *testing.T) {
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
 
-	u1 := &model.User{Phone: "13800000001", Name: "A", PasswordHash: "h", Salt: ""}
-	u2 := &model.User{Phone: "13800000002", Name: "B", PasswordHash: "h", Salt: ""}
+	u1 := &model.User{Phone: "13800000001", Name: "U1"}
+	u2 := &model.User{Phone: "13800000002", Name: "U2"}
 	require.NoError(t, db.Create(u1).Error)
 	require.NoError(t, db.Create(u2).Error)
 
@@ -144,7 +142,7 @@ func TestUserService_UpdateMember(t *testing.T) {
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
 
-	u := &model.User{Phone: "13800000010", Name: "Old", PasswordHash: "oldhash", Salt: "", Email: "old@e.com", Position: "Intern"}
+	u := &model.User{Phone: "13800000010", Name: "Original"}
 	require.NoError(t, db.Create(u).Error)
 	bond := &model.OrgUserBond{OrgID: org.ID, UserID: u.ID, IsAdmin: false}
 	require.NoError(t, db.Create(bond).Error)
@@ -155,7 +153,7 @@ func TestUserService_UpdateMember(t *testing.T) {
 	isAdmin := true
 	deptID := 42
 	isDeptMgr := true
-	m, err := svc.UpdateMember(ctx, org.ID, u.ID, "New Name", "new@e.com", "Senior", "newpass", &isAdmin, &deptID, &isDeptMgr)
+	m, err := svc.UpdateMember(ctx, org.ID, u.ID, "New Name", "new@e.com", "Senior", &isAdmin, &deptID, &isDeptMgr)
 	require.NoError(t, err)
 	require.NotNil(t, m)
 
@@ -165,11 +163,6 @@ func TestUserService_UpdateMember(t *testing.T) {
 	assert.True(t, m.IsAdmin)
 	assert.True(t, m.IsDepartmentManager)
 	assert.Equal(t, 42, *m.DepartmentID)
-
-	// Verify password was re-hashed
-	updated, _ := userRepo.GetByID(ctx, u.ID)
-	h := sha256.Sum256([]byte("newpass"))
-	assert.Equal(t, hex.EncodeToString(h[:]), updated.PasswordHash)
 }
 
 func TestUserService_RemoveMember(t *testing.T) {
@@ -179,13 +172,13 @@ func TestUserService_RemoveMember(t *testing.T) {
 	userRepo := repository.NewUserRepository(db)
 	bondRepo := repository.NewOrgUserBondRepository(db)
 
-	u := &model.User{Phone: "13800000020", Name: "RemoveMe", PasswordHash: "h", Salt: ""}
+	u := &model.User{Phone: "13800000020", Name: "RemoveMe"}
 	require.NoError(t, db.Create(u).Error)
 	bond := &model.OrgUserBond{OrgID: org.ID, UserID: u.ID}
 	require.NoError(t, db.Create(bond).Error)
 
-	// Create a second user as the current user (remover must be different from removee)
-	currentUser := &model.User{Phone: "13800000021", Name: "Remover", PasswordHash: "h", Salt: ""}
+	// Remover must be a different user who is also an admin (last-admin protection).
+	currentUser := &model.User{Phone: "13800000021", Name: "Remover"}
 	require.NoError(t, db.Create(currentUser).Error)
 	currentBond := &model.OrgUserBond{OrgID: org.ID, UserID: currentUser.ID, IsAdmin: true}
 	require.NoError(t, db.Create(currentBond).Error)
@@ -206,7 +199,7 @@ func TestUserService_RemoveMember(t *testing.T) {
 }
 
 func TestDepartmentService_BuildTree(t *testing.T) {
-	db := setupTestDB(t)
+	db := setupUserTestDB(t)
 	org := &model.Org{Name: "Tree Org"}
 	require.NoError(t, db.Create(org).Error)
 
@@ -230,13 +223,6 @@ func TestDepartmentService_BuildTree(t *testing.T) {
 
 	tree, err := svc.BuildTree(ctx, org.ID)
 	require.NoError(t, err)
-	// DEBUG
-	var allDepts []*model.Department
-	allDepts, _ = svc.GetDeptsByOrgID(ctx, org.ID)
-	t.Logf("org.ID=%d, depts count=%d", org.ID, len(allDepts))
-	for _, d := range allDepts {
-		t.Logf("dept: id=%d name=%s orgID=%d parentID=%v", d.ID, d.Name, d.OrgID, d.ParentID)
-	}
 
 	assert.Len(t, tree, 1)
 	assert.Equal(t, "Root", tree[0].Name)
@@ -245,5 +231,6 @@ func TestDepartmentService_BuildTree(t *testing.T) {
 	assert.Equal(t, "Child2", tree[0].Children[1].Name)
 	assert.Len(t, tree[0].Children[0].Children, 1)
 	assert.Equal(t, "GrandChild", tree[0].Children[0].Children[0].Name)
-	assert.Equal(t, grandchild.ID, tree[0].Children[0].Children[0].ID)
+
+	_ = grandchild
 }

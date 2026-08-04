@@ -2,15 +2,14 @@ package model
 
 import "time"
 
-// User represents a user account with DingTalk integration.
+// User represents a user account with OAuth (WebAuthn / DingTalk) integration.
 type User struct {
 	ID           int       `gorm:"primaryKey" json:"id"`
-	Phone        string    `gorm:"uniqueIndex;not null" json:"phone"`
-	PasswordHash string    `gorm:"column:password_hash;not null" json:"-"`
-	Salt         string    `gorm:"not null" json:"-"`
+	Phone        string    `gorm:"index" json:"phone,omitempty"`
+	Email        string    `gorm:"index" json:"email,omitempty"`
+	EmailVerified bool     `gorm:"default:false" json:"emailVerified,omitempty"`
 	Name         string    `json:"name"`
 	AvatarURL    string    `gorm:"column:avatar_url" json:"avatarUrl,omitempty"`
-	Email        string    `json:"email,omitempty"`
 	Position     string    `json:"position,omitempty"`
 
 	// DingTalk integration (pointers so unset values are NULL, avoiding unique-constraint collisions)

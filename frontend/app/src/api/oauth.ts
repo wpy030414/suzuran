@@ -1,0 +1,119 @@
+// frontend/app/src/api/oauth.ts
+// OAuth IdP API client — WebAuthn (Passkey) + DingTalk OAuth + OAuth2 token.
+import apiClient from './client'
+
+// ---- WebAuthn registration ----
+
+export interface BeginRegistrationResponse {
+  sessionId: string
+  options: CredentialCreationOptionsJSON
+  userId: number
+}
+
+export async function beginRegistration(userId: number, name: string, email: string) {
+  return apiClient.post<BeginRegistrationResponse>('/oauth/webauthn/register/begin', {
+    userId,
+    name,
+    email,
+  })
+}
+
+export async function finishRegistration(sessionId: string, response: unknown) {
+  return apiClient.post<{ userId: number }>('/oauth/webauthn/register/finish', {
+    sessionId,
+    response,
+  })
+}
+
+// ---- WebAuthn login ----
+
+export interface BeginLoginResponse {
+  sessionId: string
+  options: CredentialRequestOptionsJSON
+}
+
+export interface OrgChoice {
+  orgId: number
+  orgName: string
+  isAdmin: boolean
+}
+
+export interface LoginResult {
+  userId: number
+  availableOrgs: OrgChoice[]
+}
+
+export async function beginLogin(identifier: string) {
+  return apiClient.post<BeginLoginResponse>('/oauth/webauthn/login/begin', { identifier })
+}
+
+export async function finishLogin(sessionId: string, response: unknown) {
+  return apiClient.post<LoginResult>('/oauth/webauthn/login/finish', { sessionId, response })
+}
+
+// ---- DingTalk OAuth ----
+
+export async function getDingTalkAuthorizeURL(redirectURI: string) {
+  return apiClient.get<{ authorizeUrl: string }>('/oauth/dingtalk/authorize', {
+    params: { redirect_uri: redirectURI },
+  })
+}
+
+// ---- OAuth2 token endpoint ----
+
+export interface TokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+  refresh_token: string
+  scope?: string
+}
+
+export async function exchangeAuthorizationCode(
+  code: string,
+  clientId: string,
+  redirectURI: string,
+  codeVerifier: string,
+) {
+  // Use form-urlencoded as per OAuth2 spec.
+  const params = new URLSearchParams()
+  params.set('grant_type', 'authorization_code')
+  params.set('code', code)
+  params.set('client_id', clientId)
+  params.set('redirect_uri', redirectURI)
+  params.set('code_verifier', codeVerifier)
+  return apiClient.post<TokenResponse>('/oauth/token', params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
+}
+
+export async function refreshAccessToken(refreshToken: string, clientId: string) {
+  const params = new URLSearchParams()
+  params.set('grant_type', 'refresh_token')
+  params.set('refresh_token', refreshToken)
+  params.set('client_id', clientId)
+  return apiClient.post<TokenResponse>('/oauth/token', params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
+}
+
+export async function revokeToken(token: string) {
+  return apiClient.post('/oauth/revoke', { token })
+}
+
+// ---- Server public key (for verifying tokens client-side, optional) ----
+
+export interface MetadataResponse {
+  issuer: string
+  authorization_endpoint: string
+  token_endpoint: string
+  revocation_endpoint: string
+  response_types_supported: string[]
+  grant_types_supported: string[]
+  code_challenge_methods_supported: string[]
+  scopes_supported: string[]
+}
+
+export async function getMetadata() {
+  return apiClient.get<MetadataResponse>('/.well-known/openid-configuration')
+}

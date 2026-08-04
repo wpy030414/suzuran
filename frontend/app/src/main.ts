@@ -34,5 +34,10 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(vuetify)
+
+// Restore auth state from localStorage before mounting (so route guards see it).
+import { useAuthStore } from './stores/auth'
+useAuthStore(pinia).initFromStorage()
+
 app.use(router)
 app.mount('#app')
