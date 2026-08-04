@@ -21,27 +21,16 @@
                 </v-alert>
 
                 <!-- WebAuthn 登录 -->
-                <v-form @submit.prevent="handlePasskeyLogin">
-                  <v-text-field
-                    v-model="identifier"
-                    label="邮箱或用户名"
-                    placeholder="输入注册时的邮箱或用户名"
-                    prepend-inner-icon="mdi-account"
-                    variant="outlined"
-                    :rules="[required]"
-                    class="mb-4"
-                  />
-                  <v-btn
-                    color="primary"
-                    size="x-large"
-                    block
-                    type="submit"
-                    :loading="loading"
-                    prepend-icon="mdi-fingerprint"
-                  >
-                    使用 Passkey 登录
-                  </v-btn>
-                </v-form>
+                <v-btn
+                  color="primary"
+                  size="x-large"
+                  block
+                  :loading="loading"
+                  prepend-icon="mdi-fingerprint"
+                  @click="handlePasskeyLogin"
+                >
+                  使用 Passkey 登录
+                </v-btn>
 
                 <v-divider class="my-6">或</v-divider>
 
@@ -82,27 +71,20 @@ import { useAuthStore } from '../stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const identifier = ref('')
 const loading = ref(false)
 const dingtalkLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-const required = (v: string) => !!v || '此项为必填项'
-
-// WebAuthn 登录流程：begin → 浏览器弹窗 → finish → 拿 sessionId → 选组织 → 拿 token
+// WebAuthn 登录流程：begin（空 identifier = discoverable）→ 浏览器弹窗 → finish → 拿 sessionId → 选组织 → 拿 token
 const handlePasskeyLogin = async () => {
-  if (!identifier.value) {
-    errorMessage.value = '请输入邮箱或用户名'
-    return
-  }
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
 
   try {
     // Step 1: Complete WebAuthn ceremony, get sessionId + availableOrgs
-    const result = await authStore.loginWithPasskey(identifier.value)
+    const result = await authStore.loginWithPasskey()
 
     // Step 2: If user has available orgs, select the first one and exchange for tokens
     if (result.availableOrgs.length > 0) {

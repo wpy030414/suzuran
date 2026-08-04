@@ -11,11 +11,10 @@ export interface BeginRegistrationResponse {
   userId: number
 }
 
-export async function beginRegistration(userId: number, name: string, email: string) {
+export async function beginRegistration(userId: number, name: string) {
   return apiClient.post<BeginRegistrationResponse>('/oauth/webauthn/register/begin', {
     userId,
     name,
-    email,
   })
 }
 
@@ -46,8 +45,8 @@ export interface LoginResult {
   availableOrgs: OrgChoice[]
 }
 
-export async function beginLogin(identifier: string) {
-  return apiClient.post<BeginLoginResponse>('/oauth/webauthn/login/begin', { identifier })
+export async function beginLogin() {
+  return apiClient.post<BeginLoginResponse>('/oauth/webauthn/login/begin', {})
 }
 
 export async function finishLogin(sessionId: string, response: unknown) {

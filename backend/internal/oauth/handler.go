@@ -36,6 +36,7 @@ func (h *Handler) BeginRegistration(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// Email is now optional; the backend will auto-generate <name>@suzuran.io if empty.
 	resp, err := h.webAuthn.BeginRegistration(c.Request.Context(), req.UserID, req.Name, req.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -67,14 +68,12 @@ func (h *Handler) FinishRegistration(c *gin.Context) {
 
 // BeginLogin
 // POST /oauth/webauthn/login/begin
+// If identifier is empty, a discoverable (usernameless) login challenge is returned.
 func (h *Handler) BeginLogin(c *gin.Context) {
 	var req struct {
 		Identifier string `json:"identifier"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	_ = c.ShouldBindJSON(&req) // allow empty body
 	resp, err := h.webAuthn.BeginLogin(c.Request.Context(), req.Identifier)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

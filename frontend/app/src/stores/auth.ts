@@ -38,10 +38,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   // ---- WebAuthn registration ----
 
-  async function registerPasskey(name: string, email: string) {
-    const begin = await beginRegistration(0, name, email)
+  async function registerPasskey(name: string) {
+    const begin = await beginRegistration(0, name)
+    const rawOptions = begin.data.options.publicKey || begin.data.options
+    const options = decodePublicKeyCreationOptions(rawOptions)
     const credential = await navigator.credentials.create({
-      publicKey: begin.data.options,
+      publicKey: options,
     })
     if (!credential) throw new Error('Passkey creation cancelled')
     const serialized = serializeCreationCredential(credential as PublicKeyCredential)
@@ -51,10 +53,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   // ---- WebAuthn login ----
 
-  async function loginWithPasskey(identifier: string): Promise<LoginResult> {
-    const begin = await beginLogin(identifier)
+  async function loginWithPasskey(): Promise<LoginResult> {
+    const begin = await beginLogin()
+    const rawOptions = begin.data.options.publicKey || begin.data.options
+    const options = decodePublicKeyRequestOptions(rawOptions)
     const assertion = await navigator.credentials.get({
-      publicKey: begin.data.options,
+      publicKey: options,
     })
     if (!assertion) throw new Error('Passkey authentication cancelled')
     const serialized = serializeAssertionCredential(assertion as PublicKeyCredential)
@@ -217,4 +221,50 @@ function arrayBufferToBase64Url(buf: ArrayBuffer): string {
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
   const base64 = btoa(bin)
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+// ---- WebAuthn options decoding (base64url → ArrayBuffer) ----
+
+function base64UrlToBuffer(base64url: string): Uint8Array {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/')
+  const pad = base64.length % 4
+  const padded = pad ? base64 + '='.repeat(4 - pad) : base64
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
+function decodePublicKeyCreationOptions(raw: any): PublicKeyCredentialCreationOptions {
+  return {
+    challenge: base64UrlToBuffer(raw.challenge),
+    rp: raw.rp,
+    user: {
+      ...raw.user,
+      id: base64UrlToBuffer(raw.user.id),
+    },
+    pubKeyCredParams: raw.pubKeyCredParams,
+    timeout: raw.timeout,
+    attestation: raw.attestation,
+    authenticatorSelection: raw.authenticatorSelection,
+    excludeCredentials: raw.excludeCredentials?.map((c: any) => ({
+      ...c,
+      id: base64UrlToBuffer(c.id),
+    })),
+    extensions: raw.extensions,
+  }
+}
+
+function decodePublicKeyRequestOptions(raw: any): PublicKeyCredentialRequestOptions {
+  return {
+    challenge: base64UrlToBuffer(raw.challenge),
+    timeout: raw.timeout,
+    rpId: raw.rpId,
+    allowCredentials: raw.allowCredentials?.map((c: any) => ({
+      ...c,
+      id: base64UrlToBuffer(c.id),
+    })),
+    userVerification: raw.userVerification,
+    extensions: raw.extensions,
+  }
 }

@@ -177,9 +177,16 @@ func (s *DingTalkService) LoginOrCreate(ctx context.Context, dtUser *DingTalkUse
 		if name == "" {
 			name = dtUser.Nick
 		}
+		// Auto-generate email: <openid>@dingtalk.suzuran.io
+		email := ""
+		if dtUser.OpenID != "" {
+			email = dtUser.OpenID + "@dingtalk.suzuran.io"
+		} else if dtUser.Email != "" {
+			email = dtUser.Email
+		}
 		user = &model.User{
 			Name:             name,
-			Email:            dtUser.Email,
+			Email:            email,
 			Phone:            dtUser.Mobile,
 			DingtalkUserID:   strPtr(dtUser.UserID),
 			DingtalkUnionID:  strPtr(dtUser.UnionID),

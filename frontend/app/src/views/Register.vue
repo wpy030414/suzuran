@@ -30,15 +30,6 @@
                     :rules="[required]"
                     class="mb-4"
                   />
-                  <v-text-field
-                    v-model="email"
-                    label="邮箱"
-                    placeholder="输入邮箱"
-                    prepend-inner-icon="mdi-email"
-                    variant="outlined"
-                    :rules="[required, emailRule]"
-                    class="mb-4"
-                  />
                   <v-btn
                     color="primary"
                     size="x-large"
@@ -75,17 +66,15 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const name = ref('')
-const email = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
 const required = (v: string) => !!v || '此项为必填项'
-const emailRule = (v: string) => /.+@.+\..+/.test(v) || '请输入正确的邮箱'
 
 const handleRegister = async () => {
-  if (!name.value || !email.value) {
-    errorMessage.value = '请填写用户名和邮箱'
+  if (!name.value) {
+    errorMessage.value = '请填写用户名'
     return
   }
   loading.value = true
@@ -93,7 +82,7 @@ const handleRegister = async () => {
   successMessage.value = ''
 
   try {
-    await authStore.registerPasskey(name.value, email.value)
+    await authStore.registerPasskey(name.value)
     successMessage.value = 'Passkey 注册成功！请前往登录。'
     setTimeout(() => {
       router.push('/login')

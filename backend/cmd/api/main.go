@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/xrl/suzuran-cloud/internal/handler"
@@ -17,6 +18,7 @@ import (
 	"github.com/xrl/suzuran-cloud/internal/mcp"
 	mcptools "github.com/xrl/suzuran-cloud/internal/mcp/tools"
 	"github.com/xrl/suzuran-cloud/internal/middleware"
+	"github.com/xrl/suzuran-cloud/internal/model"
 	"github.com/xrl/suzuran-cloud/internal/oauth"
 	"github.com/xrl/suzuran-cloud/internal/pkg/dingtalk"
 	"github.com/xrl/suzuran-cloud/internal/repository"
@@ -336,7 +338,36 @@ func initDatabase() (*gorm.DB, error) {
 		dsn = "host=localhost user=admin password=changeme dbname=suzuran_cloud port=5432 sslmode=disable"
 	}
 
-	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Try PostgreSQL first
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Printf("PostgreSQL unavailable (%v), falling back to SQLite in-memory mode", err)
+		db, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to open SQLite: %w", err)
+		}
+
+		// AutoMigrate all models for SQLite
+		if err := db.AutoMigrate(
+			&model.User{},
+			&model.Org{},
+			&model.OrgUserBond{},
+			&model.Department{},
+			&model.WebAuthnCredential{},
+			&model.OAuthClient{},
+			&model.OAuthToken{},
+			&model.OAuthSession{},
+			&model.Application{},
+			&model.ApplicationDeployment{},
+			&model.AuditLog{},
+			&model.DingTalkSyncLog{},
+		); err != nil {
+			return nil, fmt.Errorf("failed to auto-migrate: %w", err)
+		}
+		log.Println("SQLite in-memory database initialized with auto-migration")
+	}
+
+	return db, nil
 }
 
 func getEnvOrDefault(key, defaultValue string) string {

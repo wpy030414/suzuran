@@ -81,7 +81,9 @@ func (s *WebAuthnService) BeginRegistration(ctx context.Context, userID int, nam
 	}
 	wuser := &WebAuthnUser{User: user, Credentials: creds}
 
-	options, sessionData, err := s.webAuthn.BeginRegistration(wuser)
+	options, sessionData, err := s.webAuthn.BeginRegistration(wuser,
+		webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementPreferred),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin registration: %w", err)
 	}
@@ -160,9 +162,29 @@ type BeginLoginResponse struct {
 	Options   json.RawMessage `json:"options"`
 }
 
-// BeginLogin starts the WebAuthn login ceremony. The user is identified by
-// name/email first, then their credentials are loaded for the challenge.
+// BeginLogin starts the WebAuthn login ceremony.
+// If identifier is empty, it performs a discoverable login (usernameless/resident key).
+// Otherwise, the user is identified by name/email first, then their credentials are loaded for the challenge.
 func (s *WebAuthnService) BeginLogin(ctx context.Context, identifier string) (*BeginLoginResponse, error) {
+	if identifier == "" {
+		// Discoverable login (usernameless) — the OS/browser will prompt the user to select a credential.
+		options, sessionData, err := s.webAuthn.BeginDiscoverableLogin()
+		if err != nil {
+			return s.fakeLoginChallenge()
+		}
+
+		sessionID, err := RandomString(32)
+		if err != nil {
+			return nil, err
+		}
+		if err := storeSession(sessionID, sessionData, 5*time.Minute); err != nil {
+			return nil, fmt.Errorf("failed to store session: %w", err)
+		}
+
+		optsJSON, _ := json.Marshal(options)
+		return &BeginLoginResponse{SessionID: sessionID, Options: optsJSON}, nil
+	}
+
 	user, err := s.findUser(ctx, identifier)
 	if err != nil || user == nil {
 		// Do not reveal whether the user exists — return a dummy challenge so
@@ -210,6 +232,64 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, sessionID string, par
 	}
 	defer deleteSession(sessionID)
 
+	parsed, err := parseAssertionResponse(parsedResponse)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse assertion response: %w", err)
+	}
+
+	// Check if this is a discoverable login (userHandle provided by authenticator).
+	if len(parsed.Response.UserHandle) > 0 {
+		handler := func(rawID, userHandle []byte) (webauthn.User, error) {
+			uid, ok := userIDFromHandle(userHandle)
+			if !ok {
+				return nil, errors.New("invalid user handle")
+			}
+			user, err := s.userRepo.GetByID(ctx, uid)
+			if err != nil || user == nil {
+				return nil, errors.New("user not found")
+			}
+			creds, _ := s.credRepo.ListByUserID(ctx, user.ID)
+			return &WebAuthnUser{User: user, Credentials: creds}, nil
+		}
+
+		updatedCred, err := s.webAuthn.ValidateDiscoverableLogin(handler, *sessionData, parsed)
+		if err != nil {
+			return "", fmt.Errorf("discoverable login verification failed: %w", err)
+		}
+
+		// Resolve user from updated credential for storing login session.
+		storedCred, _ := s.credRepo.GetByCredentialID(ctx, updatedCred.ID)
+		if storedCred == nil {
+			return "", errors.New("credential not found after validation")
+		}
+		user, err := s.userRepo.GetByID(ctx, storedCred.UserID)
+		if err != nil || user == nil {
+			return "", errors.New("user not found")
+		}
+
+		// Persist updated sign count + last-used time.
+		storedCred.SignCount = updatedCred.Authenticator.SignCount
+		now := time.Now()
+		storedCred.LastUsedAt = &now
+		_ = s.credRepo.Update(ctx, storedCred)
+
+		orgs, err := s.availableOrgs(ctx, user.ID)
+		if err != nil {
+			return "", err
+		}
+
+		loginResult := &LoginResult{UserID: user.ID, AvailableOrgs: orgs}
+		loginSessionID, err := RandomString(32)
+		if err != nil {
+			return "", err
+		}
+		if err := storeLoginSession(loginSessionID, loginResult, 5*time.Minute); err != nil {
+			return "", fmt.Errorf("failed to store login session: %w", err)
+		}
+		return loginSessionID, nil
+	}
+
+	// Standard login (identifier-based).
 	userID, ok := userIDFromHandle(sessionData.UserID)
 	if !ok {
 		return "", errors.New("invalid session user handle")
@@ -220,11 +300,6 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, sessionID string, par
 	}
 	creds, _ := s.credRepo.ListByUserID(ctx, user.ID)
 	wuser := &WebAuthnUser{User: user, Credentials: creds}
-
-	parsed, err := parseAssertionResponse(parsedResponse)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse assertion response: %w", err)
-	}
 
 	updatedCred, err := s.webAuthn.ValidateLogin(wuser, *sessionData, parsed)
 	if err != nil {
@@ -265,8 +340,12 @@ func (s *WebAuthnService) resolveUser(ctx context.Context, userID int, name, ema
 		}
 		return u, nil
 	}
-	if email == "" && name == "" {
-		return nil, errors.New("name or email is required to register")
+	if name == "" {
+		return nil, errors.New("name is required to register")
+	}
+	// Auto-generate email: <username>@suzuran.io
+	if email == "" {
+		email = name + "@suzuran.io"
 	}
 	u := &model.User{Name: name, Email: email}
 	if err := s.userRepo.Create(ctx, u); err != nil {
