@@ -20,12 +20,12 @@
               </v-card-title>
               <v-card-text>
                 <p class="text-body-1 mt-4">
-                  低代码多租户业务平台
+                  AI 原生多租户应用平台
                 </p>
                 <ul class="ml-6 mt-2">
-                  <li>服务商端：管理组织、设计表单、配置工作流</li>
+                  <li>服务商端：管理组织、部署应用、监控系统</li>
                   <li>租户管理端：用户管理、部门管理、钉钉同步</li>
-                  <li>用户端：填写表单、查看进度</li>
+                  <li>用户端：启动应用、使用平台服务</li>
                 </ul>
               </v-card-text>
               <v-card-actions v-if="!authStore.isAuthenticated">
@@ -45,7 +45,7 @@
               <v-card-text class="text-center pa-6">
                 <v-icon size="64" color="primary">mdi-account-multiple</v-icon>
                 <div class="text-h5 mt-4 font-weight-bold">服务商端</div>
-                <div class="text-body-2 mt-2">组织管理 · 表单设计 · 工作流配置</div>
+                <div class="text-body-2 mt-2">组织管理 · 应用部署 · 系统监控</div>
               </v-card-text>
             </v-card>
           </v-col>
@@ -63,7 +63,7 @@
               <v-card-text class="text-center pa-6">
                 <v-icon size="64" color="success">mdi-account</v-icon>
                 <div class="text-h5 mt-4 font-weight-bold">用户端</div>
-                <div class="text-body-2 mt-2">表单填写 · 进度查询 · 消息通知</div>
+                <div class="text-body-2 mt-2">启动应用 · 使用服务</div>
               </v-card-text>
             </v-card>
           </v-col>

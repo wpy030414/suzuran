@@ -50,6 +50,11 @@ const router = createRouter({
           name: 'OrgDetail',
           component: () => import('../views/provider/OrgDetail.vue'),
         },
+        {
+          path: 'apps',
+          name: 'ProviderApps',
+          component: () => import('../views/Apps.vue'),
+        },
       ],
     },
     // Tenant admin routes (租户管理端)
@@ -74,6 +79,11 @@ const router = createRouter({
           name: 'DepartmentManagement',
           component: () => import('../views/tenant/DepartmentManagement.vue'),
         },
+        {
+          path: 'apps',
+          name: 'TenantApps',
+          component: () => import('../views/Apps.vue'),
+        },
       ],
     },
     // User routes (用户端)
@@ -86,6 +96,11 @@ const router = createRouter({
           path: '',
           name: 'UserDashboard',
           component: () => import('../views/user/Dashboard.vue'),
+        },
+        {
+          path: 'apps',
+          name: 'UserApps',
+          component: () => import('../views/Apps.vue'),
         },
       ],
     },

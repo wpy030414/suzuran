@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -175,6 +176,26 @@ func main() {
 			systemGroup.GET("/database/metrics", systemHandler.GetDatabaseMetrics)
 			systemGroup.GET("/logs", logHandler.GetLogs)
 		}
+
+		// Generic application list route (accessible by all authenticated users).
+		// Returns apps for the caller's org — serves as the OA-style start page for
+		// both providers (all apps they manage) and tenant users (apps distributed to them).
+		protected.GET("/apps", func(c *gin.Context) {
+			orgID := c.GetInt("org_id")
+			apps, err := appRepo.ListByOrgID(c.Request.Context(), orgID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			// Mask container IDs for non-provider roles
+			role := c.GetString("role")
+			if role != "provider" {
+				for _, a := range apps {
+					a.ContainerID = ""
+				}
+			}
+			c.JSON(http.StatusOK, gin.H{"apps": apps})
+		})
 
 		// Provider portal routes
 		providerGroup := protected.Group("/provider")

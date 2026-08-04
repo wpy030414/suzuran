@@ -8,6 +8,13 @@
       <v-btn @click="authStore.logout">退出</v-btn>
     </v-app-bar>
 
+    <v-navigation-drawer permanent>
+      <v-list>
+        <v-list-item to="/user" prepend-icon="mdi-view-dashboard" title="仪表盘" exact />
+        <v-list-item to="/user/apps" prepend-icon="mdi-apps" title="应用启动台" />
+      </v-list>
+    </v-navigation-drawer>
+
     <v-main>
       <v-container>
         <RouterView />

@@ -102,20 +102,20 @@ frontend/app/                 # 统一单页应用（三端共用）
 - [ ] 新增 MCP Tools 浏览页面（服务商端，展示可用 tools 和 schema）
 - [ ] 新增 MCP 调用日志页面（审计日志可视化）
 
-### Spec 04: 应用管理前端（3-5 天）
-- [ ] 新增 Application 数据模型（新定义，非低代码的 application）
-- [ ] 重写 Applications.vue — 应用列表（名称、版本、状态、资源使用）
-- [ ] 新增 AppDetail.vue — 应用详情
-  - [ ] 配置编辑（app.json）
-  - [ ] 路由配置
-  - [ ] MCP scopes 配置
-  - [ ] 部署历史
-  - [ ] 资源使用图表（CPU/内存/DB 连接）
-  - [ ] 日志查看
-  - [ ] 启动/停止/重启按钮
-- [ ] 新增 `api/application.ts` — 应用管理 API
-- [ ] 新增 `stores/application.ts` — 应用状态管理
-- [ ] 更新 ProviderLayout — 添加"应用管理"导航项
+### Spec 04: 应用管理前端（✅ 已完成）
+- [x] 新增 `api/application.ts` — 应用管理 API 客户端（通用 + provider 管理）
+- [x] 新增 `stores/application.ts` — 应用状态管理（OA 启动台）
+- [x] 新增 `views/Apps.vue` — 应用启动台（OA start page，三端共用）
+  - [x] 运行中/未运行分组卡片展示
+  - [x] 状态指示条 + 运行时图标
+  - [x] 点击进入应用（代理路由 `/apps/:appId/`）
+- [x] 新增 `components/AppCard.vue` — 应用卡片组件
+- [x] 更新 ProviderLayout — 添加"应用启动台"导航项
+- [x] 更新 TenantLayout — 添加"应用启动台"导航项
+- [x] 更新 UserLayout — 添加导航抽屉 + "应用启动台"导航项
+- [x] 更新路由 — 三端各自注册 `apps` 子路由
+- [x] 后端新增 `GET /api/apps` 通用端点（返回当前 org 应用，非 provider 隐藏 containerId）
+- [ ] 应用详情页（AppDetail.vue）— 待后续增强
 
 ## ❌ 已移除（低代码资产）
 

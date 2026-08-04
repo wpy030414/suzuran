@@ -11,6 +11,7 @@
     <v-navigation-drawer permanent>
       <v-list>
         <v-list-item to="/tenant/dashboard" prepend-icon="mdi-view-dashboard" title="仪表盘" />
+        <v-list-item to="/tenant/apps" prepend-icon="mdi-apps" title="应用启动台" />
         <v-list-item to="/tenant/users" prepend-icon="mdi-account-multiple" title="用户管理" />
         <v-list-item to="/tenant/departments" prepend-icon="mdi-sitemap" title="部门管理" />
       </v-list>
