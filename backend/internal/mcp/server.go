@@ -25,8 +25,8 @@ func NewMCPServer() *MCPServer {
 		"suzuran-cloud-mcp",
 		"1.0.0",
 		server.WithToolCapabilities(false),
-		server.WithResourceCapabilities(false, false),
-		server.WithPromptCapabilities(false),
+		server.WithResourceCapabilities(false, true),
+		server.WithPromptCapabilities(true),
 	)
 
 	return &MCPServer{server: s}

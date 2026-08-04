@@ -118,6 +118,12 @@ func main() {
 		minioClient,
 		db,
 	)
+	mcpServer.RegisterPrompts()
+
+	// Register schema resources from docs/contracts/schemas/
+	schemaDir := getEnvOrDefault("SCHEMA_DIR", "../docs/contracts/schemas")
+	schemas := mcp.LoadSchemaResources(schemaDir)
+	mcpServer.RegisterResources(schemas)
 
 	r := gin.Default()
 
