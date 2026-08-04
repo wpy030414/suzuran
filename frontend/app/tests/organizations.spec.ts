@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
+import { bootstrapAuthedSession } from './helpers/webauthn'
 
-test('组织管理 CRUD 测试', async ({ page }) => {
+test('组织管理 CRUD 测试（WebAuthn 全真登录）', async ({ page }) => {
   page.on('console', msg => console.log(`[Browser] ${msg.text()}`))
   // 自动接受删除确认框（window.confirm）
   page.on('dialog', d => d.accept())
@@ -10,16 +11,11 @@ test('组织管理 CRUD 测试', async ({ page }) => {
   const orgDesc = `自动化测试描述${uniqueSuffix}`
   const editedDesc = `已编辑描述${uniqueSuffix}`
 
-  // 1. 登录
-  await page.goto('http://localhost:5173/login')
-  await page.waitForSelector('input[placeholder="请输入手机号"]', { timeout: 5000 })
-  await page.getByPlaceholder('请输入手机号').fill('13800138000')
-  await page.getByPlaceholder('请输入密码').fill('password123')
-  await page.getByRole('button', { name: '登录' }).click()
-  await page.waitForURL('**/provider/dashboard', { timeout: 10000 })
+  // 1. 登录（WebAuthn 虚拟认证器全真流程）
+  const auth = await bootstrapAuthedSession(page)
 
   // 2. 导航到组织管理
-  await page.goto('http://localhost:5173/provider/orgs')
+  await page.goto('/provider/orgs')
   await page.waitForTimeout(1200)
   await expect(page.locator('h1.text-h4')).toHaveText('组织管理')
 
@@ -63,5 +59,6 @@ test('组织管理 CRUD 测试', async ({ page }) => {
   await page.waitForTimeout(1200)
   await expect(page.locator('tr').filter({ hasText: orgName })).toHaveCount(0)
 
+  await auth.remove()
   console.log('✅ 组织管理 CRUD 测试成功喵！')
 })

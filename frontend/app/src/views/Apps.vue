@@ -64,7 +64,7 @@
             md="4"
             lg="3"
           >
-            <AppCard :app="app" @open="openApp" />
+            <AppCard :app="app" :show-details="isProvider" @open="openApp" @details="showDetails" />
           </v-col>
         </v-row>
       </div>
@@ -84,7 +84,7 @@
             md="4"
             lg="3"
           >
-            <AppCard :app="app" disabled @open="openApp" />
+            <AppCard :app="app" disabled :show-details="isProvider" @details="showDetails" />
           </v-col>
         </v-row>
       </div>
@@ -93,12 +93,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useApplicationStore } from '../stores/application'
 import AppCard from '../components/AppCard.vue'
 import type { Application } from '../api/application'
 
 const appStore = useApplicationStore()
+const route = useRoute()
+const router = useRouter()
+
+// Provider portal shows a "details" link to AppDetail; tenant/user portals don't.
+const isProvider = computed(() => route.path.startsWith('/provider'))
 
 onMounted(() => {
   appStore.fetchApps()
@@ -108,5 +114,9 @@ function openApp(app: Application) {
   // Navigate to the app container via the proxy route
   // The backend's AppRouter will proxy requests to /apps/:appId/*
   window.open(`/apps/${app.id}/`, '_blank')
+}
+
+function showDetails(app: Application) {
+  router.push(`/provider/apps/${app.id}`)
 }
 </script>

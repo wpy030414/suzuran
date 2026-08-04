@@ -55,6 +55,21 @@ const router = createRouter({
           name: 'ProviderApps',
           component: () => import('../views/Apps.vue'),
         },
+        {
+          path: 'apps/:appId',
+          name: 'ProviderAppDetail',
+          component: () => import('../views/provider/AppDetail.vue'),
+        },
+        {
+          path: 'mcp/tools',
+          name: 'ProviderMCPTools',
+          component: () => import('../views/provider/MCPTools.vue'),
+        },
+        {
+          path: 'mcp/logs',
+          name: 'ProviderMCPLogs',
+          component: () => import('../views/provider/MCPLogs.vue'),
+        },
       ],
     },
     // Tenant admin routes (租户管理端)

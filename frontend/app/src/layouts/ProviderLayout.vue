@@ -13,6 +13,9 @@
         <v-list-item to="/provider/dashboard" prepend-icon="mdi-view-dashboard" title="仪表盘" />
         <v-list-item to="/provider/apps" prepend-icon="mdi-apps" title="应用启动台" />
         <v-list-item to="/provider/orgs" prepend-icon="mdi-account-multiple" title="组织管理" />
+        <v-list-subheader>MCP</v-list-subheader>
+        <v-list-item to="/provider/mcp/tools" prepend-icon="mdi-tools" title="MCP 工具" />
+        <v-list-item to="/provider/mcp/logs" prepend-icon="mdi-script-text-outline" title="MCP 调用日志" />
       </v-list>
     </v-navigation-drawer>
 

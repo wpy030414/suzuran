@@ -51,11 +51,20 @@
         color="primary"
         variant="flat"
         size="small"
-        block
         @click.stop="$emit('open', app)"
       >
         进入应用
         <v-icon end>mdi-arrow-right</v-icon>
+      </v-btn>
+      <v-spacer />
+      <v-btn
+        v-if="showDetails"
+        size="small"
+        variant="text"
+        @click.stop="$emit('details', app)"
+      >
+        详情
+        <v-icon end>mdi-chevron-right</v-icon>
       </v-btn>
     </v-card-actions>
     <v-card-actions v-else class="px-5 pb-4">
@@ -73,10 +82,12 @@ import type { Application } from '../api/application'
 const props = defineProps<{
   app: Application
   disabled?: boolean
+  showDetails?: boolean
 }>()
 
 defineEmits<{
   open: [app: Application]
+  details: [app: Application]
 }>()
 
 const statusColor = computed(() => {

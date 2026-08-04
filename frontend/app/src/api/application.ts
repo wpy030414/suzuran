@@ -87,3 +87,19 @@ export function getAppLogs(id: string, tail = 100) {
     params: { tail },
   })
 }
+
+export interface Deployment {
+  id: string
+  applicationId: string
+  version: string
+  imageTag: string
+  status: string // building, deployed, failed, stopped
+  containerId: string
+  logs: string
+  createdAt: string
+  completedAt: string | null
+}
+
+export function getDeployments(id: string) {
+  return apiClient.get<{ deployments: Deployment[] }>(`/api/provider/apps/${id}/deployments`)
+}
