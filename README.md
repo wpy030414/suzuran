@@ -82,10 +82,13 @@ npm run dev
 - ✅ OAuth IdP（WebAuthn + 钉钉 OAuth）
 - ✅ MCP Server（22 个工具，数据共享层）
 - ✅ 应用运行时（Docker 容器管理，生命周期管理，沙箱隔离，资源配额）
+- ✅ 应用启动台前端（三端共用 OA start page）
+- ✅ Skill/MCP 契约文档（v1.0.0，含示例应用）
 
 **待建设**：
-- ⏳ Skill/MCP 契约文档
-- ⏳ 前端应用管理页面
+- ⏳ 应用详情页增强（部署历史、日志查看 UI）
+- ⏳ MCP resources / prompts 补充
+- ⏳ 单元测试补充
 
 ## 📚 文档
 

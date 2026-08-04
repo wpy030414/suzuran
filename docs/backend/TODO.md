@@ -74,13 +74,15 @@
 - [x] DockerClient 接口抽象（跨平台编译，Windows stub / Linux 完整实现）
 - [ ] 前端应用管理页面（待 Spec 04 前端部分）
 
-### Spec 05: Skill/MCP 契约文档（3-5 天）
-- [ ] MCP tools JSON Schema
-- [ ] OAuth 流程文档
-- [ ] 应用 SDK 文档
-- [ ] 数据模型 Schema（org/user/department）
-- [ ] 应用清单 Schema
-- [ ] 示例应用（hello-world）
+### Spec 05: Skill/MCP 契约文档（✅ 已完成）
+- [x] MCP tools JSON Schema（覆盖全部 22 个 tools，含 input/scope/role）
+- [x] OAuth 流程文档（WebAuthn + 钉钉 OAuth + session/token 交换 + 刷新 + 撤销）
+- [x] 应用 SDK 文档（安装、初始化、MCP 调用、HTTP 路由、生命周期、运行时环境变量）
+- [x] 数据模型 Schema（org/user/department/application）
+- [x] 应用清单 Schema（app-manifest.json）
+- [x] 示例应用（hello-world：app.json + server.js + package.json + README）
+- [x] 契约文档发布到 `docs/contracts/` 目录
+- [x] 契约文档版本控制（v1.0.0，SemVer）
 
 ## ❌ 已移除（低代码资产）
 
