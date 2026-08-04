@@ -112,11 +112,11 @@ func (t *FileTools) RegisterTools(server *mcpserver.MCPServer) {
 		}),
 	)
 
-	// file.list - List files (not implemented yet)
+	// file.list - List files in an organization
 	server.AddTool(
 		mcp.Tool{
 			Name:        "file.list",
-			Description: "List files in an organization (not yet implemented)",
+			Description: "List files in an organization",
 			InputSchema: mcp.ToolInputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
@@ -126,7 +126,7 @@ func (t *FileTools) RegisterTools(server *mcpserver.MCPServer) {
 					},
 					"prefix": map[string]interface{}{
 						"type":        "string",
-						"description": "Prefix filter (optional)",
+						"description": "Prefix filter relative to the org's file path (optional)",
 					},
 					"limit": map[string]interface{}{
 						"type":        "integer",
@@ -258,9 +258,26 @@ func (t *FileTools) handleFileDelete(ctx context.Context, request mcp.CallToolRe
 	})
 }
 
-// handleFileList handles the file.list tool (not implemented).
+// handleFileList handles the file.list tool.
 func (t *FileTools) handleFileList(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return nil, fmt.Errorf("file.list is not yet implemented")
+	orgID, err := mcpserver.GetIntArg(request.Params.Arguments, "orgId")
+	if err != nil {
+		return nil, err
+	}
+
+	prefix := mcpserver.GetOptionalStringArg(request.Params.Arguments, "prefix", "")
+	limit := mcpserver.GetOptionalIntArg(request.Params.Arguments, "limit", 100)
+
+	files, err := t.fileStorage.ListFiles(ctx, orgID, prefix, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+
+	return mcpserver.CreateSuccessResponse(map[string]interface{}{
+		"orgId":  orgID,
+		"count":  len(files),
+		"files":  files,
+	})
 }
 
 // handleFilePresignedURL handles the file.presigned_url tool.

@@ -36,6 +36,16 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*model.U
 	return &user, err
 }
 
+// GetByDingTalkUserID finds a user by their DingTalk userid.
+func (r *UserRepository) GetByDingTalkUserID(ctx context.Context, dtUserID string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("dingtalk_userid = ?", dtUserID).First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &user, err
+}
+
 func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }

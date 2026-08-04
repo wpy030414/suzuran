@@ -278,15 +278,14 @@
     },
     {
       "name": "file.list",
-      "description": "列出组织文件（待实现）",
+      "description": "列出组织文件",
       "required_scope": "file.read",
       "input": {
         "type": "object",
         "properties": {
           "orgId": { "type": "integer" },
           "prefix": { "type": "string" },
-          "limit": { "type": "integer", "default": 100 },
-          "offset": { "type": "integer", "default": 0 }
+          "limit": { "type": "integer", "default": 100 }
         },
         "required": ["orgId"]
       }

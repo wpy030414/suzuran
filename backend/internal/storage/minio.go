@@ -88,3 +88,42 @@ func (c *MinIOClient) DeleteFile(ctx context.Context, objectKey string) error {
 	}
 	return nil
 }
+
+// ListFiles lists objects under an organization's storage prefix.
+// prefix is an optional sub-path filter relative to the org prefix
+// (e.g. "reports/" matches orgs/<orgID>/files/reports/*).
+// limit caps the number of returned objects; <=0 defaults to 100.
+func (c *MinIOClient) ListFiles(ctx context.Context, orgID int, prefix string, limit int) ([]FileInfo, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+
+	// Org-scoped prefix; uploads use "orgs/<orgID>/files/<...>".
+	orgPrefix := fmt.Sprintf("orgs/%d/files/", orgID)
+	if prefix != "" {
+		orgPrefix += prefix
+	}
+
+	objectCh := c.client.ListObjects(ctx, c.bucket, minio.ListObjectsOptions{
+		Prefix:    orgPrefix,
+		Recursive: true,
+	})
+
+	files := make([]FileInfo, 0, limit)
+	for object := range objectCh {
+		if object.Err != nil {
+			return nil, fmt.Errorf("failed to list files: %w", object.Err)
+		}
+		files = append(files, FileInfo{
+			ObjectKey:   object.Key,
+			Size:        object.Size,
+			Updated:     object.LastModified,
+			ContentType: object.ContentType,
+		})
+		if len(files) >= limit {
+			break
+		}
+	}
+
+	return files, nil
+}

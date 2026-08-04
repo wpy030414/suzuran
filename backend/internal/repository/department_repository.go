@@ -33,6 +33,16 @@ func (r *DepartmentRepository) GetByOrgID(ctx context.Context, orgID int) ([]*mo
 	return depts, err
 }
 
+// GetByDingTalkDeptID finds a department by its DingTalk department id within an org.
+func (r *DepartmentRepository) GetByDingTalkDeptID(ctx context.Context, orgID int, deptID int64) (*model.Department, error) {
+	var dept model.Department
+	err := r.db.WithContext(ctx).Where("org_id = ? AND dingtalk_dept_id = ?", orgID, deptID).First(&dept).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &dept, err
+}
+
 func (r *DepartmentRepository) Update(ctx context.Context, dept *model.Department) error {
 	return r.db.WithContext(ctx).Save(dept).Error
 }

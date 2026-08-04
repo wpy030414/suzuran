@@ -59,3 +59,22 @@ func (s *AuditService) GetDataChanges(ctx context.Context, tableName string, rec
 		Find(&changes).Error
 	return changes, err
 }
+
+// ListAuditLogs queries recent audit logs, optionally filtered by org and/or
+// action (e.g. "mcp.tool_call" to surface MCP invocations). limit caps the
+// result set (default 100, max 500).
+func (s *AuditService) ListAuditLogs(ctx context.Context, orgID int, action string, limit int) ([]*model.AuditLog, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	q := s.db.WithContext(ctx).Model(&model.AuditLog{}).Order("created_at DESC").Limit(limit)
+	if orgID > 0 {
+		q = q.Where("org_id = ?", orgID)
+	}
+	if action != "" {
+		q = q.Where("action = ?", action)
+	}
+	var logs []*model.AuditLog
+	err := q.Find(&logs).Error
+	return logs, err
+}

@@ -18,6 +18,7 @@ import (
 	mcptools "github.com/xrl/suzuran-cloud/internal/mcp/tools"
 	"github.com/xrl/suzuran-cloud/internal/middleware"
 	"github.com/xrl/suzuran-cloud/internal/oauth"
+	"github.com/xrl/suzuran-cloud/internal/pkg/dingtalk"
 	"github.com/xrl/suzuran-cloud/internal/repository"
 	"github.com/xrl/suzuran-cloud/internal/runtime"
 	"github.com/xrl/suzuran-cloud/internal/service"
@@ -91,6 +92,21 @@ func main() {
 		appService = service.NewApplicationService(appRepo, deployRepo, runtimeManager)
 	}
 	appHandler := provider.NewAppHandler(appService)
+
+	// Audit log query handler (for MCP call log viewer + general audit)
+	auditSvc := service.NewAuditService(db)
+	auditHandler := provider.NewAuditHandler(auditSvc)
+
+	// Initialize DingTalk sync service (only when configured)
+	var syncHandler *provider.DingTalkSyncHandler
+	if dtCfg := dingtalk.NewConfig(); dtCfg.AppKey != "" {
+		syncLogRepo := repository.NewDingTalkSyncLogRepository(db)
+		dtClient := dingtalk.NewClient(dtCfg)
+		syncService := service.NewDingTalkSyncService(dtClient, orgRepo, userRepo, deptRepo, bondRepo, syncLogRepo)
+		syncHandler = provider.NewDingTalkSyncHandler(syncService)
+	} else {
+		log.Printf("Warning: DINGTALK_APP_KEY not set, org sync disabled")
+	}
 
 	// Initialize MCP server
 	mcpServer := mcp.NewMCPServer()
@@ -197,8 +213,9 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"apps": apps})
 		})
 
-		// Provider portal routes
+		// Provider portal routes (require org_admin or provider_admin)
 		providerGroup := protected.Group("/provider")
+		providerGroup.Use(middleware.RequireOrgAdmin())
 		{
 			providerGroup.GET("/orgs", orgHandler.List)
 			providerGroup.POST("/orgs", orgHandler.Create)
@@ -223,6 +240,11 @@ func main() {
 				orgUsers.DELETE("/:userId", orgMemberHandler.RemoveMember)
 			}
 
+			// DingTalk organization sync (only mounted when configured)
+			if syncHandler != nil {
+				providerGroup.POST("/orgs/:orgId/dingtalk/sync", syncHandler.Sync)
+			}
+
 			// Application management routes
 			if appHandler != nil {
 				appGroup := providerGroup.Group("/apps")
@@ -241,10 +263,14 @@ func main() {
 					appGroup.GET("/:appId/deployments", appHandler.Deployments)
 				}
 			}
+
+			// Audit log queries (MCP call log viewer + general audit)
+			providerGroup.GET("/audit/logs", auditHandler.ListLogs)
 		}
 
-		// Tenant admin routes
+		// Tenant admin routes (require dept_manager or higher)
 		tenantGroup := protected.Group("/tenant")
+		tenantGroup.Use(middleware.RequireDeptManager())
 		{
 			tenantGroup.GET("/users", userHandler.ListMembers)
 			tenantGroup.POST("/users", userHandler.CreateMember)

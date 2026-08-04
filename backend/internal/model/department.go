@@ -10,6 +10,7 @@ type Department struct {
 	Level             int       `gorm:"default:1" json:"level"`
 	ManagerUserID     *int      `json:"managerUserId"`
 	Description       string    `json:"description"`
+	DingtalkDeptID    *int64    `gorm:"column:dingtalk_dept_id;uniqueIndex:idx_departments_dingtalk_dept_id" json:"dingtalkDeptId,omitempty"`
 	CreatedAt         time.Time `json:"createdAt"`
 	UpdatedAt         time.Time `json:"updatedAt"`
 
