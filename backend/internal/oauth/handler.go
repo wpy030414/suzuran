@@ -94,12 +94,20 @@ func (h *Handler) FinishLogin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	result, err := h.webAuthn.FinishLogin(c.Request.Context(), req.SessionID, req.Response)
+	loginSessionID, err := h.webAuthn.FinishLogin(c.Request.Context(), req.SessionID, req.Response)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	// Load the login session to return userId + availableOrgs alongside the sessionId,
+	// so the frontend can render an org selector before calling /oauth/session/token.
+	lr, _ := loadLoginSession(loginSessionID)
+	resp := gin.H{"sessionId": loginSessionID}
+	if lr != nil {
+		resp["userId"] = lr.UserID
+		resp["availableOrgs"] = lr.AvailableOrgs
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // --- DingTalk OAuth ---
@@ -137,12 +145,51 @@ func (h *Handler) DingTalkCallback(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
-	result, err := h.dingTalk.LoginOrCreate(c.Request.Context(), dtUser)
+	loginSessionID, err := h.dingTalk.LoginOrCreate(c.Request.Context(), dtUser)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	// Load the login session to return userId + availableOrgs alongside the sessionId.
+	lr, _ := loadLoginSession(loginSessionID)
+	resp := gin.H{"sessionId": loginSessionID}
+	if lr != nil {
+		resp["userId"] = lr.UserID
+		resp["availableOrgs"] = lr.AvailableOrgs
+		resp["isNewUser"] = lr.IsNewUser
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// --- Session token exchange (login → token bridge) ---
+
+// SessionToken
+// POST /oauth/session/token
+// Exchanges a login session (from WebAuthn/DingTalk) for access + refresh tokens.
+func (h *Handler) SessionToken(c *gin.Context) {
+	var req struct {
+		SessionID string `json:"sessionId"`
+		OrgID     int    `json:"orgId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.SessionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
+		return
+	}
+	if req.OrgID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "orgId is required"})
+		return
+	}
+
+	resp, err := h.oauth.ExchangeLoginSession(c.Request.Context(), req.SessionID, req.OrgID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // --- OAuth2 endpoints ---

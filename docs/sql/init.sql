@@ -189,15 +189,92 @@ CREATE INDEX idx_dingtalk_sync_logs_org ON dingtalk_sync_logs(org_id);
 -- 示例数据（开发环境）
 -- ============================================
 
--- 插入默认组织
-INSERT INTO orgs (name, description) VALUES ('演示租户', '系统默认演示组织');
+-- 插入默认组织（服务商）
+INSERT INTO orgs (id, name, description, created_at, updated_at)
+VALUES (1, '演示服务商', '用于演示的服务商组织（超级管理）', NOW(), NOW());
 
--- 插入管理员用户（密码: admin123，bcrypt 哈希）
-INSERT INTO users (phone, password_hash, salt, name, email)
-VALUES ('13800138000', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'random_salt_123', '系统管理员', 'admin@example.com');
+-- 插入租户组织
+INSERT INTO orgs (id, name, description, created_at, updated_at)
+VALUES (2, '演示租户', '用于演示的租户组织', NOW(), NOW());
 
--- 绑定管理员到默认组织（is_admin = true）
-INSERT INTO org_user_bonds (org_id, user_id, is_admin) VALUES (1, 1, true);
+-- 插入管理员用户（无密码，需注册 WebAuthn Passkey）
+INSERT INTO users (id, name, email, created_at, updated_at)
+VALUES (1, '服务商管理员', 'admin@example.com', NOW(), NOW());
+
+-- 绑定管理员到服务商组织（is_admin = true → provider 角色）
+INSERT INTO org_user_bonds (org_id, user_id, is_admin, created_at, updated_at)
+VALUES (1, 1, true, NOW(), NOW());
+
+-- 插入租户管理员
+INSERT INTO users (id, name, email, created_at, updated_at)
+VALUES (2, '租户管理员', 'tenant@example.com', NOW(), NOW());
+
+-- 绑定租户管理员到租户组织（is_admin = true → tenant_admin 角色）
+INSERT INTO org_user_bonds (org_id, user_id, is_admin, created_at, updated_at)
+VALUES (2, 2, true, NOW(), NOW());
+
+-- 插入普通用户
+INSERT INTO users (id, name, email, created_at, updated_at)
+VALUES (3, '普通用户', 'user@example.com', NOW(), NOW());
+
+-- 绑定普通用户到租户组织（is_admin = false → user 角色）
+INSERT INTO org_user_bonds (org_id, user_id, is_admin, created_at, updated_at)
+VALUES (2, 3, false, NOW(), NOW());
 
 -- 插入根部门
-INSERT INTO departments (org_id, name, level, sort_order) VALUES (1, '根部门', 1, 0);
+INSERT INTO departments (id, org_id, name, level, sort_order, created_at, updated_at)
+VALUES (1, 2, '根部门', 1, 0, NOW(), NOW());
+
+-- 同步序列到当前最大 id
+SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
+SELECT setval('orgs_id_seq', (SELECT MAX(id) FROM orgs));
+SELECT setval('org_user_bonds_id_seq', (SELECT MAX(id) FROM org_user_bonds));
+SELECT setval('departments_id_seq', (SELECT MAX(id) FROM departments));
+
+-- ============================================
+-- 应用运行时表（Spec 04）
+-- ============================================
+
+-- 应用表
+CREATE TABLE IF NOT EXISTS applications (
+    id VARCHAR(64) PRIMARY KEY,
+    org_id INT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    version VARCHAR(50),
+    runtime VARCHAR(50),
+    entrypoint VARCHAR(500),
+    port INT,
+    cpu_quota VARCHAR(20),
+    memory_quota VARCHAR(20),
+    db_conn_quota INT DEFAULT 10,
+    mcp_scopes JSONB,
+    routes JSONB,
+    status VARCHAR(20) DEFAULT 'created',
+    container_id VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_applications_org_id ON applications(org_id);
+CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
+
+-- 应用部署历史表
+CREATE TABLE IF NOT EXISTS application_deployments (
+    id VARCHAR(64) PRIMARY KEY,
+    application_id VARCHAR(64) NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    version VARCHAR(50),
+    image_tag VARCHAR(200),
+    status VARCHAR(20) DEFAULT 'building',
+    container_id VARCHAR(100),
+    logs TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_deployments_app_id ON application_deployments(application_id);
+
+-- ============================================
+-- 首次登录说明：
+-- 1. 启动后端 + 前端
+-- 2. 访问前端注册页，用 email "admin@example.com" 注册 WebAuthn Passkey
+--    （后端 /oauth/webauthn/register/begin 会匹配到 user_id=1）
+-- 3. 注册成功后，用 WebAuthn 登录 → 自动选择组织 1 → 获得 provider 令牌
+-- ============================================

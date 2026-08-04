@@ -8,6 +8,7 @@ import {
   beginRegistration,
   finishRegistration,
   getDingTalkAuthorizeURL,
+  exchangeLoginSession,
   refreshAccessToken,
   type OrgChoice,
   type LoginResult,
@@ -22,8 +23,6 @@ interface User {
 }
 
 // The OAuth client_id for the platform's own frontend (this SPA).
-// In a full deployment this would be registered in oauth_clients; for dev the
-// SPA talks to the platform backend directly via the WebAuthn/login endpoints.
 const PLATFORM_CLIENT_ID = 'suzuran-spa'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -31,6 +30,8 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string>('')
   const refreshToken = ref<string>('')
   const availableOrgs = ref<OrgChoice[]>([])
+  // loginSessionId is set after WebAuthn/DingTalk login and consumed by completeLoginWithToken.
+  const loginSessionId = ref<string>('')
 
   const isAuthenticated = computed(() => !!token.value)
   const userRole = computed(() => user.value?.role || '')
@@ -38,14 +39,11 @@ export const useAuthStore = defineStore('auth', () => {
   // ---- WebAuthn registration ----
 
   async function registerPasskey(name: string, email: string) {
-    // 1. Begin registration — get the challenge + sessionId.
     const begin = await beginRegistration(0, name, email)
-    // 2. Ask the browser/authenticator to create a credential.
     const credential = await navigator.credentials.create({
       publicKey: begin.data.options,
     })
     if (!credential) throw new Error('Passkey creation cancelled')
-    // 3. Send the credential back for verification (serialize PublicKeyCredential).
     const serialized = serializeCreationCredential(credential as PublicKeyCredential)
     await finishRegistration(begin.data.sessionId, serialized)
     return begin.data.userId
@@ -61,8 +59,35 @@ export const useAuthStore = defineStore('auth', () => {
     if (!assertion) throw new Error('Passkey authentication cancelled')
     const serialized = serializeAssertionCredential(assertion as PublicKeyCredential)
     const result = await finishLogin(begin.data.sessionId, serialized)
-    availableOrgs.value = result.data.availableOrgs
-    return result.data
+    const data = result.data
+    availableOrgs.value = data.availableOrgs
+    // Stash the login sessionId so completeLoginWithToken can use it.
+    loginSessionId.value = data.sessionId
+    return data
+  }
+
+  // ---- Complete login: exchange session + org for tokens ----
+
+  async function completeLoginWithToken(sessionId: string, orgId: number) {
+    const resp = await exchangeLoginSession(sessionId, orgId)
+    setTokens(resp.data.access_token, resp.data.refresh_token, resp.data.scope)
+    const u: User = {
+      id: 0,
+      orgId: orgId,
+      role: determineRole(orgId),
+    }
+    setUser(u)
+    loginSessionId.value = ''
+    return resp.data
+  }
+
+  // Determine role based on the selected org from availableOrgs.
+  function determineRole(orgId: number): 'provider' | 'tenant_admin' | 'user' {
+    const match = availableOrgs.value.find(o => o.orgId === orgId)
+    if (!match) return 'user'
+    if (orgId === 1 && match.isAdmin) return 'provider'
+    if (match.isAdmin) return 'tenant_admin'
+    return 'user'
   }
 
   // ---- DingTalk OAuth ----
@@ -87,17 +112,8 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('user', JSON.stringify(u))
   }
 
-  // Selecting an org after login: in OAuth-only mode the SPA completes the
-  // authorization_code flow with the chosen org baked into the session. The
-  // backend's /oauth/authorize requires the org_id in context; for the SPA's
-  // own login we stash it and the token endpoint mints a token for that org.
-  async function selectOrgAndMintToken(orgId: number, role: 'provider' | 'tenant_admin' | 'user') {
-    // The platform SPA uses its own login flow: after WebAuthn login succeeds,
-    // we request an access token scoped to the selected org. The backend mints
-    // a token directly via the internal token path (the SPA is a first-party
-    // client). For now we store the org + role on the user; the actual token
-    // issuance happens server-side during the WebAuthn finish step in a real
-    // deployment. Here we persist selection so the app knows the active org.
+  // Keep for backward compatibility (used by Login.vue old path).
+  function selectOrgAndMintToken(orgId: number, role: 'provider' | 'tenant_admin' | 'user') {
     const u = user.value || { id: 0 }
     u.orgId = orgId
     u.role = role
@@ -123,6 +139,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     refreshToken.value = ''
     availableOrgs.value = []
+    loginSessionId.value = ''
     localStorage.removeItem('token')
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('user')
@@ -146,10 +163,12 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     refreshToken,
     availableOrgs,
+    loginSessionId,
     isAuthenticated,
     userRole,
     registerPasskey,
     loginWithPasskey,
+    completeLoginWithToken,
     redirectToDingTalk,
     selectOrgAndMintToken,
     refresh,

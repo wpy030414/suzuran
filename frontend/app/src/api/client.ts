@@ -84,9 +84,9 @@ function clearAndRedirect() {
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('user')
   localStorage.removeItem('scope')
-  if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-    window.location.href = '/login'
-  }
+  // Emit a custom event so the router can handle navigation without page reload.
+  // The App.vue or main.ts listens for this event and uses router.push('/login').
+  window.dispatchEvent(new CustomEvent('auth:logout'))
 }
 
 export default apiClient

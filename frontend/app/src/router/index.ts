@@ -22,6 +22,12 @@ const router = createRouter({
       component: () => import('../views/Register.vue'),
       meta: { requiresGuest: true },
     },
+    {
+      path: '/oauth/dingtalk/callback',
+      name: 'DingTalkCallback',
+      component: () => import('../views/Callback.vue'),
+      meta: { requiresGuest: true },
+    },
     // Provider routes (服务商端)
     {
       path: '/provider',

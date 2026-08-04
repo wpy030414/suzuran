@@ -156,26 +156,19 @@ func (s *DingTalkService) getUserInfo(ctx context.Context, userToken string) (*D
 	return &u, nil
 }
 
-// LoginResult mirrors WebAuthn's LoginResult so the OAuth layer can treat
-// both login paths uniformly.
-type DingTalkLoginResult struct {
-	UserID        int         `json:"userId"`
-	AvailableOrgs []OrgChoice `json:"availableOrgs"`
-	IsNewUser     bool        `json:"isNewUser"`
-}
-
 // LoginOrCreate resolves a DingTalk user to a platform user.
 // If the DingTalk userid is already bound, the existing user is returned.
 // Otherwise a new user is created (but not bound to any org — an admin must
 // add them, or they self-select during first-time onboarding).
-func (s *DingTalkService) LoginOrCreate(ctx context.Context, dtUser *DingTalkUser) (*DingTalkLoginResult, error) {
+// Returns a sessionId that the frontend uses to exchange for tokens.
+func (s *DingTalkService) LoginOrCreate(ctx context.Context, dtUser *DingTalkUser) (string, error) {
 	if dtUser.UserID == "" && dtUser.OpenID == "" && dtUser.UnionID == "" {
-		return nil, errors.New("no dingtalk identifier")
+		return "", errors.New("no dingtalk identifier")
 	}
 
 	user, err := s.findDingTalkUser(ctx, dtUser)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	isNew := false
 	if user == nil {
@@ -194,7 +187,7 @@ func (s *DingTalkService) LoginOrCreate(ctx context.Context, dtUser *DingTalkUse
 			AvatarURL:        dtUser.AvatarURL,
 		}
 		if err := s.userRepo.Create(ctx, user); err != nil {
-			return nil, fmt.Errorf("failed to create dingtalk user: %w", err)
+			return "", fmt.Errorf("failed to create dingtalk user: %w", err)
 		}
 		isNew = true
 	} else {
@@ -219,13 +212,28 @@ func (s *DingTalkService) LoginOrCreate(ctx context.Context, dtUser *DingTalkUse
 
 	orgs, err := s.availableOrgs(ctx, user.ID)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &DingTalkLoginResult{
+
+	// Store login result in session for the frontend to exchange for tokens.
+	loginResult := &LoginResult{
 		UserID:        user.ID,
 		AvailableOrgs: orgs,
-		IsNewUser:     isNew,
-	}, nil
+	}
+	loginSessionID, err := RandomString(32)
+	if err != nil {
+		return "", err
+	}
+	if err := storeLoginSession(loginSessionID, loginResult, 5*time.Minute); err != nil {
+		return "", fmt.Errorf("failed to store login session: %w", err)
+	}
+
+	// Mark isNewUser in the session data for frontend reference
+	if isNew {
+		loginResult.IsNewUser = true
+	}
+
+	return loginSessionID, nil
 }
 
 func (s *DingTalkService) findDingTalkUser(ctx context.Context, dt *DingTalkUser) (*model.User, error) {

@@ -71,23 +71,21 @@ npm run dev
 | MinIO Console | `9001` | 对象存储管理界面 |
 | Frontend | `3000` | 三端门户（provider/tenant/user） |
 
-## 🚀 当前状态（2026-08-02）
+## 🚀 当前状态（2026-08-04）
 
-项目正在从低代码平台转型为 AI 原生应用平台。
+项目已从低代码平台成功转型为 AI 原生应用平台。
 
 **已完成**：
 - ✅ 多租户基座（org/user/bond/dept + JWT + tenant 中间件）
 - ✅ 三层架构（handler/service/repository/model）
 - ✅ 基础 API（组织管理、用户管理、部门管理）
-
-**待清理**：
-- ⏳ 低代码资产（拖拽设计器、工作流引擎、报表设计器、动态表单）
+- ✅ OAuth IdP（WebAuthn + 钉钉 OAuth）
+- ✅ MCP Server（22 个工具，数据共享层）
+- ✅ 应用运行时（Docker 容器管理，生命周期管理，沙箱隔离，资源配额）
 
 **待建设**：
-- ⏳ OAuth IdP（WebAuthn + 钉钉 OAuth）
-- ⏳ MCP Server（数据共享层）
-- ⏳ 应用运行时（沙箱隔离、生命周期管理）
 - ⏳ Skill/MCP 契约文档
+- ⏳ 前端应用管理页面
 
 ## 📚 文档
 

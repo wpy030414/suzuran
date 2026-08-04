@@ -90,7 +90,7 @@ const successMessage = ref('')
 
 const required = (v: string) => !!v || '此项为必填项'
 
-// WebAuthn 登录流程：begin → 浏览器弹窗 → finish → 选组织 → 拿 token
+// WebAuthn 登录流程：begin → 浏览器弹窗 → finish → 拿 sessionId → 选组织 → 拿 token
 const handlePasskeyLogin = async () => {
   if (!identifier.value) {
     errorMessage.value = '请输入邮箱或用户名'
@@ -101,17 +101,17 @@ const handlePasskeyLogin = async () => {
   successMessage.value = ''
 
   try {
+    // Step 1: Complete WebAuthn ceremony, get sessionId + availableOrgs
     const result = await authStore.loginWithPasskey(identifier.value)
 
-    // 如果用户有可选组织，自动选第一个（多组织用户可后续做选择 UI）
+    // Step 2: If user has available orgs, select the first one and exchange for tokens
     if (result.availableOrgs.length > 0) {
       const org = result.availableOrgs[0]
-      const role = org.isAdmin ? 'provider' : 'user'
-      await authStore.selectOrgAndMintToken(org.orgId, role as 'provider' | 'tenant_admin' | 'user')
+      await authStore.completeLoginWithToken(result.sessionId, org.orgId)
       successMessage.value = `已登录组织：${org.orgName}`
     }
 
-    // 根据角色跳转
+    // Step 3: Route based on role
     const role = authStore.userRole
     if (role === 'provider') {
       router.push('/provider/dashboard')
@@ -132,6 +132,7 @@ const handleDingTalkLogin = async () => {
   dingtalkLoading.value = true
   errorMessage.value = ''
   try {
+    // Redirect to DingTalk OAuth; the callback will be handled by Callback.vue
     const redirectURI = `${window.location.origin}/oauth/dingtalk/callback`
     await authStore.redirectToDingTalk(redirectURI)
   } catch (error: any) {

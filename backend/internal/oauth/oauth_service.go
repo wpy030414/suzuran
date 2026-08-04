@@ -233,8 +233,33 @@ func (s *OAuthService) Metadata() *MetadataResponse {
 		ResponseTypesSupported: []string{"code"},
 		GrantTypesSupported:    []string{"authorization_code", "refresh_token"},
 		CodeChallengeMethodsSupported: []string{"S256"},
-		ScopesSupported:        []string{"openid", "org.read", "org.write", "file.read", "file.write", "data.read", "data.write"},
+		ScopesSupported:        []string{"openid", "org.read", "org.write", "file.read", "file.write", "data.read", "data.write", "audit.read", "audit.write"},
 	}
+}
+
+// ExchangeLoginSession redeems a login session (from WebAuthn/DingTalk login)
+// for access + refresh tokens. The orgId must be one of the user's available orgs.
+func (s *OAuthService) ExchangeLoginSession(ctx context.Context, loginSessionID string, orgID int) (*TokenResponse, error) {
+	lr, err := loadLoginSession(loginSessionID)
+	if err != nil {
+		return nil, errors.New("invalid or expired login session")
+	}
+	defer deleteLoginSession(loginSessionID)
+
+	// Verify the requested orgId is in the user's available orgs.
+	found := false
+	for _, org := range lr.AvailableOrgs {
+		if org.OrgID == orgID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, errors.New("org not available for this user")
+	}
+
+	// Use the platform SPA as the implicit client for first-party login.
+	return s.issueTokens(ctx, lr.UserID, orgID, "suzuran-spa", "openid org.read org.write")
 }
 
 func parseScopes(s string) []string {

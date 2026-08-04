@@ -197,35 +197,38 @@ func (s *WebAuthnService) BeginLogin(ctx context.Context, identifier string) (*B
 type LoginResult struct {
 	UserID        int         `json:"userId"`
 	AvailableOrgs []OrgChoice `json:"availableOrgs"`
+	IsNewUser     bool        `json:"isNewUser,omitempty"`
 }
 
-// FinishLogin verifies the authenticator assertion and returns the logged-in user.
-func (s *WebAuthnService) FinishLogin(ctx context.Context, sessionID string, parsedResponse []byte) (*LoginResult, error) {
+// FinishLogin verifies the authenticator assertion, stores the login result
+// in a session, and returns a sessionId. The frontend uses this sessionId
+// to call /oauth/session/token with the selected orgId to get tokens.
+func (s *WebAuthnService) FinishLogin(ctx context.Context, sessionID string, parsedResponse []byte) (string, error) {
 	sessionData, err := loadSession(sessionID)
 	if err != nil {
-		return nil, errors.New("invalid or expired login session")
+		return "", errors.New("invalid or expired login session")
 	}
 	defer deleteSession(sessionID)
 
 	userID, ok := userIDFromHandle(sessionData.UserID)
 	if !ok {
-		return nil, errors.New("invalid session user handle")
+		return "", errors.New("invalid session user handle")
 	}
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil || user == nil {
-		return nil, errors.New("user not found")
+		return "", errors.New("user not found")
 	}
 	creds, _ := s.credRepo.ListByUserID(ctx, user.ID)
 	wuser := &WebAuthnUser{User: user, Credentials: creds}
 
 	parsed, err := parseAssertionResponse(parsedResponse)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse assertion response: %w", err)
+		return "", fmt.Errorf("failed to parse assertion response: %w", err)
 	}
 
 	updatedCred, err := s.webAuthn.ValidateLogin(wuser, *sessionData, parsed)
 	if err != nil {
-		return nil, fmt.Errorf("login verification failed: %w", err)
+		return "", fmt.Errorf("login verification failed: %w", err)
 	}
 
 	// Persist updated sign count + last-used time.
@@ -238,9 +241,20 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, sessionID string, par
 
 	orgs, err := s.availableOrgs(ctx, user.ID)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &LoginResult{UserID: user.ID, AvailableOrgs: orgs}, nil
+
+	// Store login result in session for the frontend to exchange for tokens.
+	loginResult := &LoginResult{UserID: user.ID, AvailableOrgs: orgs}
+	loginSessionID, err := RandomString(32)
+	if err != nil {
+		return "", err
+	}
+	if err := storeLoginSession(loginSessionID, loginResult, 5*time.Minute); err != nil {
+		return "", fmt.Errorf("failed to store login session: %w", err)
+	}
+
+	return loginSessionID, nil
 }
 
 func (s *WebAuthnService) resolveUser(ctx context.Context, userID int, name, email string) (*model.User, error) {

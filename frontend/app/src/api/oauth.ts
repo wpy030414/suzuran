@@ -6,7 +6,8 @@ import apiClient from './client'
 
 export interface BeginRegistrationResponse {
   sessionId: string
-  options: CredentialCreationOptionsJSON
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options: any
   userId: number
 }
 
@@ -29,7 +30,8 @@ export async function finishRegistration(sessionId: string, response: unknown) {
 
 export interface BeginLoginResponse {
   sessionId: string
-  options: CredentialRequestOptionsJSON
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options: any
 }
 
 export interface OrgChoice {
@@ -39,6 +41,7 @@ export interface OrgChoice {
 }
 
 export interface LoginResult {
+  sessionId: string
   userId: number
   availableOrgs: OrgChoice[]
 }
@@ -49,6 +52,23 @@ export async function beginLogin(identifier: string) {
 
 export async function finishLogin(sessionId: string, response: unknown) {
   return apiClient.post<LoginResult>('/oauth/webauthn/login/finish', { sessionId, response })
+}
+
+// ---- Session token exchange ----
+
+export interface SessionTokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+  refresh_token: string
+  scope?: string
+}
+
+export async function exchangeLoginSession(sessionId: string, orgId: number) {
+  return apiClient.post<SessionTokenResponse>('/oauth/session/token', {
+    sessionId,
+    orgId,
+  })
 }
 
 // ---- DingTalk OAuth ----

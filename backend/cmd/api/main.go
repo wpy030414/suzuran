@@ -13,9 +13,12 @@ import (
 	"github.com/xrl/suzuran-cloud/internal/handler"
 	"github.com/xrl/suzuran-cloud/internal/handler/provider"
 	"github.com/xrl/suzuran-cloud/internal/handler/tenant"
+	"github.com/xrl/suzuran-cloud/internal/mcp"
+	mcptools "github.com/xrl/suzuran-cloud/internal/mcp/tools"
 	"github.com/xrl/suzuran-cloud/internal/middleware"
 	"github.com/xrl/suzuran-cloud/internal/oauth"
 	"github.com/xrl/suzuran-cloud/internal/repository"
+	"github.com/xrl/suzuran-cloud/internal/runtime"
 	"github.com/xrl/suzuran-cloud/internal/service"
 	"github.com/xrl/suzuran-cloud/internal/storage"
 )
@@ -73,6 +76,32 @@ func main() {
 	systemHandler := handler.NewSystemHandler(db)
 	logHandler := handler.NewLogHandler("logs/app.log", 1000)
 
+	// Initialize application runtime (Docker)
+	appRepo := repository.NewApplicationRepository(db)
+	deployRepo := repository.NewApplicationDeploymentRepository(db)
+	dockerClient, err := runtime.NewDockerClient()
+	if err != nil {
+		log.Printf("Warning: Failed to init Docker client: %v (app runtime disabled)", err)
+	}
+	var runtimeManager *runtime.RuntimeManager
+	var appService *service.ApplicationService
+	if dockerClient != nil {
+		runtimeManager = runtime.NewRuntimeManager(dockerClient, appRepo, deployRepo)
+		appService = service.NewApplicationService(appRepo, deployRepo, runtimeManager)
+	}
+	appHandler := provider.NewAppHandler(appService)
+
+	// Initialize MCP server
+	mcpServer := mcp.NewMCPServer()
+	mcptools.RegisterAllTools(
+		mcpServer,
+		orgService,
+		userService,
+		deptService,
+		minioClient,
+		db,
+	)
+
 	r := gin.Default()
 
 	// Store server start time
@@ -119,6 +148,9 @@ func main() {
 		// DingTalk OAuth
 		oauthGroup.GET("/dingtalk/authorize", oauthHandler.DingTalkAuthorize)
 		oauthGroup.GET("/dingtalk/callback", oauthHandler.DingTalkCallback)
+
+		// Session token exchange (login → token bridge)
+		oauthGroup.POST("/session/token", oauthHandler.SessionToken)
 
 		// OAuth2 endpoints
 		oauthGroup.GET("/authorize", oauthHandler.Authorize)
@@ -169,6 +201,25 @@ func main() {
 				orgUsers.PUT("/:userId", orgMemberHandler.UpdateMember)
 				orgUsers.DELETE("/:userId", orgMemberHandler.RemoveMember)
 			}
+
+			// Application management routes
+			if appHandler != nil {
+				appGroup := providerGroup.Group("/apps")
+				{
+					appGroup.POST("", appHandler.Create)
+					appGroup.GET("", appHandler.List)
+					appGroup.GET("/:appId", appHandler.GetByID)
+					appGroup.PUT("/:appId", appHandler.Update)
+					appGroup.DELETE("/:appId", appHandler.Delete)
+					appGroup.POST("/:appId/deploy", appHandler.Deploy)
+					appGroup.POST("/:appId/start", appHandler.Start)
+					appGroup.POST("/:appId/stop", appHandler.Stop)
+					appGroup.POST("/:appId/restart", appHandler.Restart)
+					appGroup.GET("/:appId/status", appHandler.Status)
+					appGroup.GET("/:appId/logs", appHandler.Logs)
+					appGroup.GET("/:appId/deployments", appHandler.Deployments)
+				}
+			}
 		}
 
 		// Tenant admin routes
@@ -198,6 +249,21 @@ func main() {
 				files.DELETE("/:key", fileHandler.Delete)
 			}
 		}
+	}
+
+	// MCP server routes (requires authentication)
+	mcpGroup := r.Group("/mcp")
+	mcpGroup.Use(middleware.Auth())
+	mcpGroup.Use(middleware.TenantContext())
+	{
+		mcpGroup.POST("", mcpServer.HandleRequest)
+		mcpGroup.GET("/tools", mcpServer.ListTools)
+	}
+
+	// Application request proxy routes (external → app container)
+	if runtimeManager != nil {
+		appRouter := runtime.NewAppRouter(appRepo, runtimeManager)
+		r.Any("/apps/:appId/*path", appRouter.HandleRequest)
 	}
 
 	port := os.Getenv("PORT")

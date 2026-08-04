@@ -86,15 +86,17 @@ frontend/app/                 # 统一单页应用（三端共用）
 
 ## ⏳ 待建设（按 Spec 编号）
 
-### Spec 02: OAuth IdP 前端（2-3 天）
-- [ ] 重写 Login.vue — 移除密码登录，添加 WebAuthn + 钉钉 OAuth 按钮
-- [ ] 新增 Register.vue — WebAuthn 注册页面（`navigator.credentials.create()`）
-- [ ] 新增 `api/oauth.ts` — OAuth API 客户端
-  - [ ] `beginWebAuthnLogin()`、`finishWebAuthnLogin()`
-  - [ ] `beginWebAuthnRegister()`、`finishWebAuthnRegister()`
-  - [ ] `getDingTalkAuthorizeURL()`
-- [ ] 更新 `stores/auth.ts` — 适配 OAuth 流程（authorization_code + token 刷新）
-- [ ] 更新路由守卫 — 处理 OAuth 回调
+### Spec 02: OAuth IdP 前端（✅ 已完成）
+- [x] 重写 Login.vue — 移除密码登录，添加 WebAuthn + 钉钉 OAuth 按钮
+- [x] 新增 Register.vue — WebAuthn 注册页面（`navigator.credentials.create()`）
+- [x] 新增 `api/oauth.ts` — OAuth API 客户端
+  - [x] `beginWebAuthnLogin()`、`finishWebAuthnLogin()`
+  - [x] `beginWebAuthnRegister()`、`finishWebAuthnRegister()`
+  - [x] `getDingTalkAuthorizeURL()`
+  - [x] `exchangeLoginSession()`（会话令牌交换）
+- [x] 更新 `stores/auth.ts` — 适配 OAuth 流程（authorization_code + token 刷新）
+- [x] 新增 `views/Callback.vue` — 钉钉 OAuth 回调处理页
+- [x] 更新路由守卫 — 处理 OAuth 回调
 
 ### Spec 03: MCP 相关前端（1-2 天）
 - [ ] 新增 MCP Tools 浏览页面（服务商端，展示可用 tools 和 schema）

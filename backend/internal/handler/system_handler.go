@@ -3,10 +3,8 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
-	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -74,28 +72,12 @@ func (h *SystemHandler) GetSystemMetrics(c *gin.Context) {
 		Timestamp:      time.Now().Format(time.RFC3339),
 	}
 
-	// Get disk usage using syscall
-	var stat syscall.Statfs_t
-	diskSuccess := false
-	if err := syscall.Statfs(".", &stat); err == nil {
-		all := stat.Blocks * uint64(stat.Bsize)
-		free := stat.Bfree * uint64(stat.Bsize)
-		metrics.DiskTotal = all
-		metrics.DiskUsage = all - free
-		diskSuccess = true
-	} else if wd, err := os.Getwd(); err == nil {
-		// Fallback: try working directory
-		if err := syscall.Statfs(wd, &stat); err == nil {
-			all := stat.Blocks * uint64(stat.Bsize)
-			free := stat.Bfree * uint64(stat.Bsize)
-			metrics.DiskTotal = all
-			metrics.DiskUsage = all - free
-			diskSuccess = true
-		}
-	}
-
-	// Set default values if disk info not available
-	if !diskSuccess {
+	// Get disk usage using platform-specific implementation
+	if diskStats, err := getDiskUsage("."); err == nil && diskStats != nil {
+		metrics.DiskTotal = diskStats.Total
+		metrics.DiskUsage = diskStats.Used
+	} else {
+		// Set default values if disk info not available
 		metrics.DiskTotal = 0
 		metrics.DiskUsage = 0
 	}

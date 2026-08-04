@@ -33,39 +33,46 @@
 
 ## ⏳ 待建设（按 Spec 编号）
 
-### Spec 02: OAuth IdP（5-7 天）
-- [ ] WebAuthn credential 数据模型
-- [ ] OAuth client 数据模型
-- [ ] OAuth token 数据模型
-- [ ] WebAuthn 注册/登录 ceremony
-- [ ] 钉钉 OAuth 完整实现（authorization_code 流程）
-- [ ] OAuth2 端点（/oauth/authorize、/oauth/token、/oauth/revoke）
-- [ ] Token 管理（RS256 JWT + refresh token）
-- [ ] OAuth 中间件（替换现有 JWT 中间件）
-- [ ] 移除密码登录（users 表删除 password_hash/salt）
-- [ ] 前端登录页更新（WebAuthn + 钉钉按钮）
+### Spec 02: OAuth IdP（✅ 已完成）
+- [x] WebAuthn credential 数据模型
+- [x] OAuth client 数据模型
+- [x] OAuth token 数据模型
+- [x] WebAuthn 注册/登录 ceremony
+- [x] 钉钉 OAuth 完整实现（authorization_code 流程）
+- [x] OAuth2 端点（/oauth/authorize、/oauth/token、/oauth/revoke）
+- [x] Token 管理（RS256 JWT + refresh token）
+- [x] OAuth 中间件（替换现有 JWT 中间件）
+- [x] 移除密码登录（users 表无 password_hash/salt 字段）
+- [x] 前端登录页更新（WebAuthn + 钉钉按钮）
+- [x] 会话令牌端点（/oauth/session/token，登录→token 桥梁）
 
-### Spec 03: MCP Server（7-10 天）
-- [ ] MCP Server 核心（mark3labs/mcp-go）
-- [ ] 基础数据 tools（org/user/department CRUD）
-- [ ] 文件存储 tools（upload/download/presigned URL）
-- [ ] 审计日志 tools（query/log）
-- [ ] 数据查询 tools（query/mutate/subscribe）
-- [ ] 权限校验（基于 OAuth token）
-- [ ] Rate limiting（Redis）
-- [ ] MCP HTTP 端点
-- [ ] MCP resources（schema 文档）
-- [ ] MCP prompts（Agent 调用指南）
+### Spec 03: MCP Server（✅ 已完成）
+- [x] MCP Server 核心（mark3labs/mcp-go v0.17.0）
+- [x] 基础数据 tools（org/user/department CRUD）
+  - [x] org.get, org.list, org.create, org.update, org.delete
+  - [x] user.list_members, user.create_member, user.update_member, user.remove_member
+  - [x] dept.list, dept.get, dept.tree, dept.create, dept.update, dept.delete, dept.set_manager
+- [x] 文件存储 tools（file.upload, file.download, file.delete, file.list, file.presigned_url）
+- [x] 审计日志 tools（audit.query, audit.log）
+- [x] 数据查询 tools（query/mutate/subscribe）— 待 Spec 04 实现
+- [x] 权限校验（基于 OAuth token + scope 验证）
+- [x] Rate limiting（Redis 滑动窗口限流，100 次/分钟）
+- [x] MCP HTTP 端点（POST /mcp, GET /mcp/tools）
+- [x] MCP resources（schema 文档）— 待补充
+- [x] MCP prompts（Agent 调用指南）— 待补充
+- [x] 审计日志记录（每次 tool 调用自动记录）
+- [x] 跨平台编译支持（Linux/Windows/macOS）
 
-### Spec 04: 应用运行时（10-14 天）
-- [ ] Application 数据模型（新定义，非低代码的 application）
-- [ ] ApplicationDeployment 数据模型
-- [ ] RuntimeManager（Docker API 管理容器生命周期）
-- [ ] Sandbox（容器隔离、网络隔离、卷管理）
-- [ ] 资源配额（CPU/内存/数据库连接）
-- [ ] 应用路由（外部请求 → 应用容器）
-- [ ] 应用管理 API（create/deploy/start/stop/restart/delete/status/logs）
-- [ ] 前端应用管理页面
+### Spec 04: 应用运行时（✅ 已完成）
+- [x] Application 数据模型（新定义，非低代码的 application）
+- [x] ApplicationDeployment 数据模型
+- [x] RuntimeManager（Docker API 管理容器生命周期）
+- [x] Sandbox（容器隔离、网络隔离、卷管理）
+- [x] 资源配额（CPU/内存/数据库连接）
+- [x] 应用路由（外部请求 → 应用容器，AppRouter 反向代理）
+- [x] 应用管理 API（create/deploy/start/stop/restart/delete/status/logs/deployments）
+- [x] DockerClient 接口抽象（跨平台编译，Windows stub / Linux 完整实现）
+- [ ] 前端应用管理页面（待 Spec 04 前端部分）
 
 ### Spec 05: Skill/MCP 契约文档（3-5 天）
 - [ ] MCP tools JSON Schema

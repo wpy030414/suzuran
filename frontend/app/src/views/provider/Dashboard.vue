@@ -76,7 +76,7 @@
               rounded
               class="mb-2"
             >
-              <template v-slot:default="{ value }">
+              <template v-slot:default>
                 <strong v-if="dbMetrics.maxOpenConns > 0">{{ dbMetrics.inUse }} / {{ dbMetrics.maxOpenConns }}</strong>
                 <strong v-else>{{ dbMetrics.inUse }} (无限制)</strong>
               </template>
@@ -316,12 +316,6 @@ const formatBytes = (bytes: number) => {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
-const formatTimestamp = (timestamp: string) => {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
-  return date.toLocaleTimeString('zh-CN', { hour12: false })
-}
-
 const formatTerminalTime = (timestamp: string) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
@@ -341,42 +335,6 @@ const getTerminalLevelClass = (level: string) => {
     case 'warn': return 'terminal-warn'
     case 'info': return 'terminal-info'
     default: return 'terminal-debug'
-  }
-}
-
-const getLogClass = (level: string) => {
-  switch (level.toLowerCase()) {
-    case 'error': return 'bg-red-lighten-5'
-    case 'warn': return 'bg-orange-lighten-5'
-    case 'info': return 'bg-blue-lighten-5'
-    default: return ''
-  }
-}
-
-const getLogLevelColor = (level: string) => {
-  switch (level.toLowerCase()) {
-    case 'error': return 'error'
-    case 'warn': return 'warning'
-    case 'info': return 'info'
-    default: return 'grey'
-  }
-}
-
-const getLogLevelIcon = (level: string) => {
-  switch (level.toLowerCase()) {
-    case 'error': return 'mdi-alert-circle'
-    case 'warn': return 'mdi-alert'
-    case 'info': return 'mdi-information'
-    default: return 'mdi-minus'
-  }
-}
-
-const getLogLevelChipColor = (level: string) => {
-  switch (level.toLowerCase()) {
-    case 'error': return 'error'
-    case 'warn': return 'warning'
-    case 'info': return 'info'
-    default: return 'grey'
   }
 }
 
