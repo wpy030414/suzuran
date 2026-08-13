@@ -1,35 +1,34 @@
 # Suzuran Cloud 前端 API 集成指南
 
+> ⚠️ 本文档已更新以反映 OAuth IdP（WebAuthn + 钉钉）改造后的现状。
+> 旧的密码登录、`/api/auth/login`、表单设计器等内容均已移除。
+
 ## 🔧 开发环境准备
 
-### 1. 后端服务启动
+### 1. 启动后端服务
 
 ```bash
-# 确保 PostgreSQL 和 Redis 已启动
+# 启动基础设施
+docker compose up -d postgres redis minio
 
-# 启动后端服务器（端口 8888）
+# 启动后端（端口 8888）
 cd backend
 go run cmd/api/main.go
 ```
 
-### 2. 前端开发服务器
+### 2. 启动前端开发服务器
 
 ```bash
-# 进入前端目录
 cd frontend/app
-
-# 安装依赖
 npm install
-
-# 启动开发服务器（端口 5173）
-npm run dev
+npm run dev   # 端口 5173
 ```
 
 ## 📡 API 配置
 
 ### 环境变量
 
-创建 `frontend/app/.env.development`：
+`frontend/app/.env.development`：
 
 ```env
 VITE_API_BASE_URL=http://localhost:8888
@@ -37,58 +36,65 @@ VITE_API_BASE_URL=http://localhost:8888
 
 ### API 模块
 
-- `src/api/auth.ts` - 认证相关 API
-- `src/api/client.ts` - Axios 客户端配置
+| 模块 | 职责 |
+|------|------|
+| `src/api/client.ts` | Axios 实例 + access_token 自动刷新（httpOnly cookie / refresh token） |
+| `src/api/oauth.ts` | WebAuthn 注册/登录 ceremony、钉钉 OAuth 跳转、session token 交换 |
+| `src/api/org.ts` | 组织 CRUD（provider 门户） |
+| `src/api/user.ts` | 成员管理（tenant 门户） |
+| `src/api/department.ts` | 部门树与管理 |
+| `src/api/application.ts` | 应用管理 + 部署/生命周期 |
+| `src/api/mcp.ts` | MCP 工具浏览、MCP 调用日志查看 |
 
 ## 🔐 认证流程
 
-### 1. 登录
+平台使用自建 OAuth IdP，access_token（JWT, 15min, RS256）+ refresh_token（30d, 可吊销）。
+前端通过 httpOnly cookie 持有 refresh_token，access_token 由前端管理。
+
+### 1. WebAuthn 注册
 
 ```typescript
-// 调用 /api/auth/login
-const response = await authStore.login(phone, password)
-
-// 返回数据
-{
-  pre_token: "pre_xxx",
-  user: { id: 1, name: "Test", phone: "13800138000" },
-  orgs: [{ org_id: 1, org_name: "Test Org", is_admin: true }]
-}
+// /register 页面调用 oauth.beginRegistration / oauth.finishRegistration
+// 浏览器原生 Passkey 注册，注册成功自动生成邮箱并登录
 ```
 
-### 2. 选择组织
+### 2. WebAuthn 登录
 
 ```typescript
-// 调用 /api/auth/select-org
-await authStore.selectOrganization(orgId)
-
-// 返回数据
-{
-  token: "jwt_token_here",
-  user: { id: 1, name: "Test", role: "provider", org_id: 1 }
-}
+// /login 页面调用 oauth.beginLogin / oauth.finishLogin
+// 无密码，凭设备本地 Passkey 完成断言
 ```
+
+### 3. 钉钉 OAuth 登录
+
+```typescript
+// /login 页面点击"钉钉登录"跳转到钉钉授权页
+// 回调到 /callback，后端完成 code → token 交换
+```
+
+### 4. Session Token 交换
+
+WebAuthn/钉钉登录成功后，前端用会话换取 JWT：
+
+```
+POST /oauth/session/token  →  { access_token, refresh_token, user, orgs }
+```
+
+### 5. Token 刷新
+
+access_token 过期时，`client.ts` 的拦截器自动用 refresh_token 调 `POST /oauth/token`（grant_type=refresh_token）换取新令牌。
 
 ## 🚀 路由守卫
 
-- `/login` - 仅未登录用户可访问
-- `/provider/*` - 需要 `provider` 角色
-- `/tenant/*` - 需要 `tenant_admin` 角色
-- `/user/*` - 需要 `user` 角色
-- `/forbidden` - 403 禁止访问页面
+| 路由 | 要求角色 |
+|------|----------|
+| `/login`、`/register`、`/callback` | 仅未登录可访问 |
+| `/provider/*` | `provider_admin` |
+| `/tenant/*` | `org_admin` 或 `dept_manager` |
+| `/user/*` | 任意已登录用户 |
+| `/forbidden` | 403 兜底页 |
 
-## 🧪 测试账号
+## 🧪 测试
 
-使用后端测试数据：
-
-| 手机号 | 密码 | 角色 |
-|--------|------|------|
-| 13800138000 | password123 | provider |
-
-## 📝 待完成功能
-
-- [ ] 表单设计器 API 对接
-- [ ] 部门管理 API 对接
-- [ ] 用户管理 API 对接
-- [ ] 文件上传 API 对接
-- [ ] 钉钉 OAuth 登录集成
+- **E2E**：`npm run test:e2e`（Playwright，覆盖登录、仪表盘、组织管理、路由守卫）
+- **单元测试**：vitest（待补，见 `docs/frontend/TODO.md`）
