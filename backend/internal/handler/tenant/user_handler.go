@@ -15,6 +15,6 @@ type UserHandler struct {
 func NewUserHandler(us *service.UserService) *UserHandler {
 	return &UserHandler{
 		OrgMgmtHandler: handlercommon.NewOrgMgmtHandler(
-			handlercommon.FromContext, nil, us, ""),
+			handlercommon.FromContext, nil, us),
 	}
 }

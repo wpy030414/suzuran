@@ -15,6 +15,6 @@ type DepartmentHandler struct {
 func NewDepartmentHandler(ds *service.DepartmentService, us *service.UserService) *DepartmentHandler {
 	return &DepartmentHandler{
 		OrgMgmtHandler: handlercommon.NewOrgMgmtHandler(
-			handlercommon.FromContext, ds, us, ""),
+			handlercommon.FromContext, ds, us),
 	}
 }

@@ -15,6 +15,6 @@ type OrgMemberHandler struct {
 func NewOrgMemberHandler(ds *service.DepartmentService, us *service.UserService) *OrgMemberHandler {
 	return &OrgMemberHandler{
 		OrgMgmtHandler: handlercommon.NewOrgMgmtHandler(
-			handlercommon.FromParam("orgId"), ds, us, "provider"),
+			handlercommon.FromParam("orgId"), ds, us),
 	}
 }

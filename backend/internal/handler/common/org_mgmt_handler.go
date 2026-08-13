@@ -12,38 +12,27 @@ import (
 // OrgMgmtHandler provides department and member management endpoints.
 // It accepts an OrgIDResolver so provider (from URL param) and tenant (from context)
 // can share the same logic.
+//
+// Authorization is handled entirely by middleware (RequireOrgAdmin / RequireDeptManager)
+// mounted on the route group — this handler performs no role checks of its own.
 type OrgMgmtHandler struct {
 	resolveOrgID OrgIDResolver
 	deptService  *service.DepartmentService
 	userService  *service.UserService
-	requireRole  string // if non-empty, c.Get("role") must equal this
 }
 
 // NewOrgMgmtHandler creates a new OrgMgmtHandler.
-func NewOrgMgmtHandler(resolver OrgIDResolver, ds *service.DepartmentService, us *service.UserService, role string) *OrgMgmtHandler {
+func NewOrgMgmtHandler(resolver OrgIDResolver, ds *service.DepartmentService, us *service.UserService) *OrgMgmtHandler {
 	return &OrgMgmtHandler{
 		resolveOrgID: resolver,
 		deptService:  ds,
 		userService:  us,
-		requireRole:  role,
 	}
-}
-
-func (h *OrgMgmtHandler) checkRole(c *gin.Context) bool {
-	if h.requireRole == "" {
-		return true
-	}
-	r, _ := c.Get("role")
-	return r == h.requireRole
 }
 
 // --- Department endpoints ---
 
 func (h *OrgMgmtHandler) ListDepts(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -58,10 +47,6 @@ func (h *OrgMgmtHandler) ListDepts(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) DeptTree(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -76,10 +61,6 @@ func (h *OrgMgmtHandler) DeptTree(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) CreateDept(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -111,10 +92,6 @@ func (h *OrgMgmtHandler) CreateDept(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) UpdateDept(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -147,10 +124,6 @@ func (h *OrgMgmtHandler) UpdateDept(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) DeleteDept(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	deptID, _ := strconv.Atoi(c.Param("deptId"))
 	if err := h.deptService.DeleteDept(c.Request.Context(), deptID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -160,10 +133,6 @@ func (h *OrgMgmtHandler) DeleteDept(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) SetDeptManager(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	deptID, _ := strconv.Atoi(c.Param("deptId"))
 	var req struct {
 		ManagerUserID int `json:"managerUserId"`
@@ -182,10 +151,6 @@ func (h *OrgMgmtHandler) SetDeptManager(c *gin.Context) {
 // --- Member endpoints ---
 
 func (h *OrgMgmtHandler) ListMembers(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -200,10 +165,6 @@ func (h *OrgMgmtHandler) ListMembers(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) CreateMember(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -231,10 +192,6 @@ func (h *OrgMgmtHandler) CreateMember(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) UpdateMember(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -262,10 +219,6 @@ func (h *OrgMgmtHandler) UpdateMember(c *gin.Context) {
 }
 
 func (h *OrgMgmtHandler) RemoveMember(c *gin.Context) {
-	if !h.checkRole(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 	orgID, err := h.resolveOrgID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
