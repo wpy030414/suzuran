@@ -12,12 +12,14 @@ import (
 
 // DeptTools provides department-related MCP tools.
 type DeptTools struct {
-	deptService *service.DepartmentService
+	deptService  *service.DepartmentService
+	rateLimiter  *mcpserver.RateLimiter
+	auditService *service.AuditService
 }
 
 // NewDeptTools creates a new DeptTools instance.
-func NewDeptTools(deptService *service.DepartmentService) *DeptTools {
-	return &DeptTools{deptService: deptService}
+func NewDeptTools(deptService *service.DepartmentService, rl *mcpserver.RateLimiter, as *service.AuditService) *DeptTools {
+	return &DeptTools{deptService: deptService, rateLimiter: rl, auditService: as}
 }
 
 // RegisterTools registers all department tools with the MCP server.
@@ -43,6 +45,8 @@ func (t *DeptTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "List departments",
 			RequiredScope: "org.read",
 			Handler:       t.handleDeptList,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -67,6 +71,8 @@ func (t *DeptTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Get department",
 			RequiredScope: "org.read",
 			Handler:       t.handleDeptGet,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -91,6 +97,8 @@ func (t *DeptTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Get department tree",
 			RequiredScope: "org.read",
 			Handler:       t.handleDeptTree,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -131,6 +139,8 @@ func (t *DeptTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Create department",
 			RequiredScope: "org.write",
 			Handler:       t.handleDeptCreate,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -171,6 +181,8 @@ func (t *DeptTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Update department",
 			RequiredScope: "org.write",
 			Handler:       t.handleDeptUpdate,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -195,6 +207,8 @@ func (t *DeptTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Delete department",
 			RequiredScope: "org.write",
 			Handler:       t.handleDeptDelete,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -223,6 +237,8 @@ func (t *DeptTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Set department manager",
 			RequiredScope: "org.write",
 			Handler:       t.handleDeptSetManager,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 }

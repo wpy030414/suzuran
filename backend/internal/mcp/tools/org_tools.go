@@ -11,12 +11,14 @@ import (
 
 // OrgTools provides organization-related MCP tools.
 type OrgTools struct {
-	orgService *service.OrgService
+	orgService   *service.OrgService
+	rateLimiter  *mcpserver.RateLimiter
+	auditService *service.AuditService
 }
 
 // NewOrgTools creates a new OrgTools instance.
-func NewOrgTools(orgService *service.OrgService) *OrgTools {
-	return &OrgTools{orgService: orgService}
+func NewOrgTools(orgService *service.OrgService, rl *mcpserver.RateLimiter, as *service.AuditService) *OrgTools {
+	return &OrgTools{orgService: orgService, rateLimiter: rl, auditService: as}
 }
 
 // RegisterTools registers all organization tools with the MCP server.
@@ -41,6 +43,8 @@ func (t *OrgTools) RegisterTools(server *mcpserver.MCPServer) {
 			Name:          "org.get",
 			RequiredScope: "org.read",
 			Handler:       t.handleOrgGet,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -58,6 +62,8 @@ func (t *OrgTools) RegisterTools(server *mcpserver.MCPServer) {
 			Name:          "org.list",
 			RequiredScope: "org.read",
 			Handler:       t.handleOrgList,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -85,6 +91,8 @@ func (t *OrgTools) RegisterTools(server *mcpserver.MCPServer) {
 			Name:          "org.create",
 			RequiredScope: "org.write",
 			Handler:       t.handleOrgCreate,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -116,6 +124,8 @@ func (t *OrgTools) RegisterTools(server *mcpserver.MCPServer) {
 			Name:          "org.update",
 			RequiredScope: "org.write",
 			Handler:       t.handleOrgUpdate,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -139,6 +149,8 @@ func (t *OrgTools) RegisterTools(server *mcpserver.MCPServer) {
 			Name:          "org.delete",
 			RequiredScope: "org.write",
 			Handler:       t.handleOrgDelete,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 }

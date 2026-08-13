@@ -11,12 +11,14 @@ import (
 
 // UserTools provides user-related MCP tools.
 type UserTools struct {
-	userService *service.UserService
+	userService  *service.UserService
+	rateLimiter  *mcpserver.RateLimiter
+	auditService *service.AuditService
 }
 
 // NewUserTools creates a new UserTools instance.
-func NewUserTools(userService *service.UserService) *UserTools {
-	return &UserTools{userService: userService}
+func NewUserTools(userService *service.UserService, rl *mcpserver.RateLimiter, as *service.AuditService) *UserTools {
+	return &UserTools{userService: userService, rateLimiter: rl, auditService: as}
 }
 
 // RegisterTools registers all user tools with the MCP server.
@@ -42,6 +44,8 @@ func (t *UserTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "List organization members",
 			RequiredScope: "org.read",
 			Handler:       t.handleListMembers,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -94,6 +98,8 @@ func (t *UserTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Create organization member",
 			RequiredScope: "org.write",
 			Handler:       t.handleCreateMember,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -146,6 +152,8 @@ func (t *UserTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Update member",
 			RequiredScope: "org.write",
 			Handler:       t.handleUpdateMember,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -174,6 +182,8 @@ func (t *UserTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Remove member",
 			RequiredScope: "org.write",
 			Handler:       t.handleRemoveMember,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 }

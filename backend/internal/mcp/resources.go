@@ -608,4 +608,79 @@ const logs = await app.mcp.call('audit.query', {
 			},
 		}, nil
 	})
+
+	// Prompt: Workflow engine guide
+	workflowPrompt := mcp.NewPrompt(
+		"workflow-guide",
+		mcp.WithPromptDescription("Guide for defining and running approval workflows via the platform workflow engine"),
+	)
+
+	s.server.AddPrompt(workflowPrompt, func(ctx context.Context, req mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		return &mcp.GetPromptResult{
+			Description: "Guide for the platform workflow engine (define, start, approve, reject)",
+			Messages: []mcp.PromptMessage{
+				{
+					Role: mcp.RoleAssistant,
+					Content: mcp.TextContent{
+						Type: "text",
+						Text: `The platform provides a built-in workflow engine for approval/process flows (Spec 06).
+Workflows are defined as JSON and exposed through MCP tools (workflow.* scopes).
+
+## Defining a workflow
+
+Call workflow.define with a definition JSON. Steps can be: start / approval / condition / end.
+
+Example — a 2-level leave approval with a condition branch:
+
+{
+  "name": "请假审批",
+  "variables": { "leaveDays": "number" },
+  "steps": [
+    { "name": "submit", "type": "start", "next": "manager_approve" },
+    {
+      "name": "manager_approve", "type": "approval",
+      "assignee": { "type": "role", "value": "dept_manager" },
+      "on_approve": { "goto": "check_days" },
+      "on_reject":  { "goto": "end_rejected" }
+    },
+    {
+      "name": "check_days", "type": "condition",
+      "conditions": [
+        { "when": "leaveDays > 3", "goto": "director_approve" },
+        { "otherwise": "end_approved" }
+      ]
+    },
+    {
+      "name": "director_approve", "type": "approval",
+      "assignee": { "type": "role", "value": "org_admin" },
+      "on_approve": { "goto": "end_approved" },
+      "on_reject":  { "goto": "end_rejected" }
+    },
+    { "name": "end_approved", "type": "end", "result": "approved" },
+    { "name": "end_rejected", "type": "end", "result": "rejected" }
+  ]
+}
+
+Assignee types: { "type": "user", "value": "<user_id>" } or { "type": "role", "value": "org_admin"|"dept_manager" }.
+Conditions use simple expressions like "leaveDays > 3" (operators: > < >= <= == !=).
+
+## Running a workflow
+
+1. workflow.define       — create the definition (returns definitionId)
+2. workflow.start        — start an instance with initial variables { "leaveDays": 5 }
+3. workflow.list_tasks   — the approver lists their pending tasks
+4. workflow.approve / workflow.reject — act on a task; the instance auto-advances
+5. workflow.get_instance — inspect the instance status + task history
+
+## Constraints
+
+- All workflow.* tools require the 'workflow.read' or 'workflow.write' scope.
+- Only the assignee of a task may approve/reject it.
+- Only the instance creator or an org_admin may cancel a running instance.
+- Workflow state is org-scoped (org_id isolation) and audited automatically.`,
+					},
+				},
+			},
+		}, nil
+	})
 }

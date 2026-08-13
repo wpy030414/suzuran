@@ -278,3 +278,56 @@ CREATE INDEX IF NOT EXISTS idx_deployments_app_id ON application_deployments(app
 --    （后端 /oauth/webauthn/register/begin 会匹配到 user_id=1）
 -- 3. 注册成功后，用 WebAuthn 登录 → 自动选择组织 1 → 获得 provider 令牌
 -- ============================================
+
+-- ============================================
+-- 流程引擎表（Spec 06）
+-- ============================================
+
+-- 流程定义表
+CREATE TABLE IF NOT EXISTS workflow_definitions (
+    id SERIAL PRIMARY KEY,
+    org_id INT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    definition JSONB NOT NULL,
+    version INT NOT NULL DEFAULT 1,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_by INT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_org_id ON workflow_definitions(org_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_status ON workflow_definitions(status);
+
+-- 流程实例表
+CREATE TABLE IF NOT EXISTS workflow_instances (
+    id SERIAL PRIMARY KEY,
+    org_id INT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    definition_id INT NOT NULL REFERENCES workflow_definitions(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'running',
+    current_step VARCHAR(255),
+    variables JSONB,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_org_id ON workflow_instances(org_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_instances_status ON workflow_instances(status);
+
+-- 流程任务表（审批待办）
+CREATE TABLE IF NOT EXISTS workflow_tasks (
+    id SERIAL PRIMARY KEY,
+    org_id INT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    instance_id INT NOT NULL REFERENCES workflow_instances(id) ON DELETE CASCADE,
+    step_name VARCHAR(255) NOT NULL,
+    assignee_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    acted_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_tasks_org_id ON workflow_tasks(org_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_tasks_instance_id ON workflow_tasks(instance_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_tasks_assignee_id ON workflow_tasks(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_tasks_status ON workflow_tasks(status);

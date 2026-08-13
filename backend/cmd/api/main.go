@@ -21,6 +21,7 @@ import (
 	"github.com/xrl/suzuran-cloud/internal/model"
 	"github.com/xrl/suzuran-cloud/internal/oauth"
 	"github.com/xrl/suzuran-cloud/internal/pkg/dingtalk"
+	pkgredis "github.com/xrl/suzuran-cloud/internal/pkg/redis"
 	"github.com/xrl/suzuran-cloud/internal/repository"
 	"github.com/xrl/suzuran-cloud/internal/runtime"
 	"github.com/xrl/suzuran-cloud/internal/service"
@@ -99,6 +100,13 @@ func main() {
 	auditSvc := service.NewAuditService(db)
 	auditHandler := provider.NewAuditHandler(auditSvc)
 
+	// Initialize workflow engine (definition / instance / task repositories + service)
+	wfDefRepo := repository.NewWorkflowDefinitionRepository(db)
+	wfInstRepo := repository.NewWorkflowInstanceRepository(db)
+	wfTaskRepo := repository.NewWorkflowTaskRepository(db)
+	var notificationSvc *service.NotificationService // in-app channel not yet wired; notifications are no-op until configured
+	workflowSvc := service.NewWorkflowService(wfDefRepo, wfInstRepo, wfTaskRepo, bondRepo, notificationSvc)
+
 	// Initialize DingTalk sync service (only when configured)
 	var syncHandler *provider.DingTalkSyncHandler
 	if dtCfg := dingtalk.NewConfig(); dtCfg.AppKey != "" {
@@ -112,6 +120,15 @@ func main() {
 
 	// Initialize MCP server
 	mcpServer := mcp.NewMCPServer()
+
+	// Initialize Redis client for MCP rate limiting (nil-safe — rate limiter is skipped when nil)
+	var mcpRateLimiter *mcp.RateLimiter
+	if err := pkgredis.InitClient(); err != nil {
+		log.Printf("Warning: Redis unavailable (%v), MCP rate limiting disabled", err)
+	} else {
+		mcpRateLimiter = mcp.NewDefaultRateLimiter(pkgredis.Client)
+	}
+
 	mcptools.RegisterAllTools(
 		mcpServer,
 		orgService,
@@ -119,6 +136,9 @@ func main() {
 		deptService,
 		minioClient,
 		db,
+		mcpRateLimiter,
+		auditSvc,
+		workflowSvc,
 	)
 	mcpServer.RegisterPrompts()
 
@@ -193,8 +213,9 @@ func main() {
 	auditMW := middleware.NewAuditMiddleware(service.NewAuditService(db))
 	protected.Use(auditMW.RecordOperations())
 	{
-		// System monitoring routes
+		// System monitoring routes (require org_admin or provider_admin)
 		systemGroup := protected.Group("/system")
+		systemGroup.Use(middleware.RequireOrgAdmin())
 		{
 			systemGroup.GET("/metrics", systemHandler.GetSystemMetrics)
 			systemGroup.GET("/database/metrics", systemHandler.GetDatabaseMetrics)
@@ -361,6 +382,9 @@ func initDatabase() (*gorm.DB, error) {
 			&model.ApplicationDeployment{},
 			&model.AuditLog{},
 			&model.DingTalkSyncLog{},
+			&model.WorkflowDefinition{},
+			&model.WorkflowInstance{},
+			&model.WorkflowTask{},
 		); err != nil {
 			return nil, fmt.Errorf("failed to auto-migrate: %w", err)
 		}

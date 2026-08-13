@@ -8,17 +8,20 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/xrl/suzuran-cloud/internal/mcp"
 	"github.com/xrl/suzuran-cloud/internal/model"
+	"github.com/xrl/suzuran-cloud/internal/service"
 	"gorm.io/gorm"
 )
 
 // AuditTools provides audit logging-related MCP tools.
 type AuditTools struct {
-	db *gorm.DB
+	db           *gorm.DB
+	rateLimiter  *mcpserver.RateLimiter
+	auditService *service.AuditService
 }
 
 // NewAuditTools creates a new AuditTools instance.
-func NewAuditTools(db *gorm.DB) *AuditTools {
-	return &AuditTools{db: db}
+func NewAuditTools(db *gorm.DB, rl *mcpserver.RateLimiter, as *service.AuditService) *AuditTools {
+	return &AuditTools{db: db, rateLimiter: rl, auditService: as}
 }
 
 // RegisterTools registers all audit tools with the MCP server.
@@ -71,6 +74,8 @@ func (t *AuditTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Query audit logs",
 			RequiredScope: "audit.read",
 			Handler:       t.handleAuditQuery,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -111,6 +116,8 @@ func (t *AuditTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Create audit log",
 			RequiredScope: "audit.write",
 			Handler:       t.handleAuditLog,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 }

@@ -15,26 +15,35 @@ func RegisterAllTools(
 	deptService *service.DepartmentService,
 	fileStorage *storage.MinIOClient,
 	db *gorm.DB,
+	rateLimiter *mcpserver.RateLimiter,
+	auditService *service.AuditService,
+	workflowService *service.WorkflowService,
 ) {
 	// Register organization tools
-	orgTools := NewOrgTools(orgService)
+	orgTools := NewOrgTools(orgService, rateLimiter, auditService)
 	orgTools.RegisterTools(server)
 
 	// Register user tools
-	userTools := NewUserTools(userService)
+	userTools := NewUserTools(userService, rateLimiter, auditService)
 	userTools.RegisterTools(server)
 
 	// Register department tools
-	deptTools := NewDeptTools(deptService)
+	deptTools := NewDeptTools(deptService, rateLimiter, auditService)
 	deptTools.RegisterTools(server)
 
 	// Register file tools (only if file storage is available)
 	if fileStorage != nil {
-		fileTools := NewFileTools(fileStorage)
+		fileTools := NewFileTools(fileStorage, rateLimiter, auditService)
 		fileTools.RegisterTools(server)
 	}
 
 	// Register audit tools
-	auditTools := NewAuditTools(db)
+	auditTools := NewAuditTools(db, rateLimiter, auditService)
 	auditTools.RegisterTools(server)
+
+	// Register workflow tools (only if the workflow service is configured)
+	if workflowService != nil {
+		workflowTools := NewWorkflowTools(workflowService, rateLimiter, auditService)
+		workflowTools.RegisterTools(server)
+	}
 }

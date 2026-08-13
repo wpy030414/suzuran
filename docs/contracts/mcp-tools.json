@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Suzuran Cloud MCP Tools",
   "description": "平台通过 MCP Server 暴露的所有数据访问工具。应用通过 POST /mcp 调用，每次调用需携带 OAuth access token。",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "transport": {
     "endpoint": "POST /mcp",
     "protocol": "JSON-RPC 2.0",
@@ -30,7 +30,8 @@
   "scopes": [
     "org.read", "org.write",
     "file.read", "file.write",
-    "audit.read", "audit.write"
+    "audit.read", "audit.write",
+    "workflow.read", "workflow.write"
   ],
   "tools": [
     {
@@ -335,6 +336,151 @@
           "metadata": { "type": "object" }
         },
         "required": ["orgId", "action", "resourceType"]
+      }
+    },
+    {
+      "name": "workflow.define",
+      "description": "创建流程定义（步骤、变量、指派）。definition 是 JSON 对象：{name, variables, steps[]}，每个 step 类型为 start/approval/condition/end",
+      "required_scope": "workflow.write",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer", "description": "组织 ID" },
+          "name": { "type": "string", "description": "流程名称" },
+          "description": { "type": "string", "description": "流程描述（可选）" },
+          "definition": { "type": "object", "description": "流程定义 JSON" }
+        },
+        "required": ["orgId", "name", "definition"]
+      }
+    },
+    {
+      "name": "workflow.get_definition",
+      "description": "获取流程定义详情（含完整步骤图）",
+      "required_scope": "workflow.read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "definitionId": { "type": "integer" }
+        },
+        "required": ["orgId", "definitionId"]
+      }
+    },
+    {
+      "name": "workflow.list_definitions",
+      "description": "列出组织内所有流程定义",
+      "required_scope": "workflow.read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" }
+        },
+        "required": ["orgId"]
+      }
+    },
+    {
+      "name": "workflow.archive",
+      "description": "归档流程定义（归档后不可再启动新实例）",
+      "required_scope": "workflow.write",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "definitionId": { "type": "integer" }
+        },
+        "required": ["orgId", "definitionId"]
+      }
+    },
+    {
+      "name": "workflow.start",
+      "description": "从定义启动流程实例，传入初始变量",
+      "required_scope": "workflow.write",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "definitionId": { "type": "integer" },
+          "variables": { "type": "object", "description": "初始流程变量，如 {leaveDays:3, leaveType:'sick'}" }
+        },
+        "required": ["orgId", "definitionId"]
+      }
+    },
+    {
+      "name": "workflow.get_instance",
+      "description": "获取流程实例详情（含当前步骤、状态、变量、完整任务历史）",
+      "required_scope": "workflow.read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "instanceId": { "type": "integer" }
+        },
+        "required": ["orgId", "instanceId"]
+      }
+    },
+    {
+      "name": "workflow.list_instances",
+      "description": "列出组织内流程实例，可按状态过滤（running/approved/rejected/cancelled）",
+      "required_scope": "workflow.read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "status": { "type": "string", "description": "可选状态过滤" }
+        },
+        "required": ["orgId"]
+      }
+    },
+    {
+      "name": "workflow.cancel",
+      "description": "取消运行中的流程实例（仅发起人或 org_admin 可执行）",
+      "required_scope": "workflow.write",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "instanceId": { "type": "integer" }
+        },
+        "required": ["orgId", "instanceId"]
+      }
+    },
+    {
+      "name": "workflow.list_tasks",
+      "description": "列出调用者的流程任务（待办与已办），可按状态过滤（pending/approved/rejected）",
+      "required_scope": "workflow.read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "description": "可选状态过滤" }
+        }
+      }
+    },
+    {
+      "name": "workflow.approve",
+      "description": "审批通过分配给调用者的待办任务，使实例沿 approve 分支推进",
+      "required_scope": "workflow.write",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "taskId": { "type": "integer" },
+          "comment": { "type": "string", "description": "审批意见（可选）" }
+        },
+        "required": ["orgId", "taskId"]
+      }
+    },
+    {
+      "name": "workflow.reject",
+      "description": "拒绝分配给调用者的待办任务，使实例沿 reject 分支推进",
+      "required_scope": "workflow.write",
+      "input": {
+        "type": "object",
+        "properties": {
+          "orgId": { "type": "integer" },
+          "taskId": { "type": "integer" },
+          "comment": { "type": "string", "description": "拒绝意见（可选）" }
+        },
+        "required": ["orgId", "taskId"]
       }
     }
   ]

@@ -9,17 +9,20 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/xrl/suzuran-cloud/internal/mcp"
+	"github.com/xrl/suzuran-cloud/internal/service"
 	"github.com/xrl/suzuran-cloud/internal/storage"
 )
 
 // FileTools provides file storage-related MCP tools.
 type FileTools struct {
-	fileStorage *storage.MinIOClient
+	fileStorage  *storage.MinIOClient
+	rateLimiter  *mcpserver.RateLimiter
+	auditService *service.AuditService
 }
 
 // NewFileTools creates a new FileTools instance.
-func NewFileTools(fileStorage *storage.MinIOClient) *FileTools {
-	return &FileTools{fileStorage: fileStorage}
+func NewFileTools(fileStorage *storage.MinIOClient, rl *mcpserver.RateLimiter, as *service.AuditService) *FileTools {
+	return &FileTools{fileStorage: fileStorage, rateLimiter: rl, auditService: as}
 }
 
 // RegisterTools registers all file tools with the MCP server.
@@ -57,6 +60,8 @@ func (t *FileTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Upload file",
 			RequiredScope: "file.write",
 			Handler:       t.handleFileUpload,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -85,6 +90,8 @@ func (t *FileTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Get download URL",
 			RequiredScope: "file.read",
 			Handler:       t.handleFileDownload,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -109,6 +116,8 @@ func (t *FileTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Delete file",
 			RequiredScope: "file.write",
 			Handler:       t.handleFileDelete,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -141,6 +150,8 @@ func (t *FileTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "List files",
 			RequiredScope: "file.read",
 			Handler:       t.handleFileList,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 
@@ -169,6 +180,8 @@ func (t *FileTools) RegisterTools(server *mcpserver.MCPServer) {
 			Description:   "Generate presigned URL",
 			RequiredScope: "file.read",
 			Handler:       t.handleFilePresignedURL,
+			RateLimiter:   t.rateLimiter,
+			AuditService:  t.auditService,
 		}),
 	)
 }

@@ -74,25 +74,48 @@
 - [x] DockerClient 接口抽象（跨平台编译，Windows stub / Linux 完整实现）
 
 ### Spec 05: Skill/MCP 契约文档（✅ 已完成）
-- [x] MCP tools JSON Schema（覆盖全部 22 个 tools，含 input/scope/role）
+- [x] MCP tools JSON Schema（覆盖全部 tools，含 input/scope/role）
 - [x] OAuth 流程文档（WebAuthn + 钉钉 OAuth + session/token 交换 + 刷新 + 撤销）
 - [x] 应用 SDK 文档（安装、初始化、MCP 调用、HTTP 路由、生命周期、运行时环境变量）
 - [x] 数据模型 Schema（org/user/department/application）
 - [x] 应用清单 Schema（app-manifest.json）
 - [x] 示例应用（hello-world：app.json + server.js + package.json + README）
 - [x] 契约文档发布到 `docs/contracts/` 目录
-- [x] 契约文档版本控制（v1.0.0，SemVer）
+- [x] 契约文档版本控制（v1.1.0，SemVer）
+
+### Spec 06: 流程引擎（✅ 已完成）
+- [x] WorkflowDefinition / WorkflowInstance / WorkflowTask 数据模型（org_id 隔离）
+- [x] Repository 层（definition/instance/task，全部带 org_id 过滤）
+- [x] WorkflowService（状态机 + 条件评估 + 通知集成）
+- [x] 条件评估器（轻量表达式：> < >= <= == !=）
+- [x] 11 个 MCP 工具（workflow.define/get_definition/list_definitions/archive/start/get_instance/list_instances/cancel/list_tasks/approve/reject）
+- [x] 接入 MCP 管道（鉴权/限流/审计自动生效）
+- [x] MCP prompt（workflow-guide）
+- [x] 单元测试（状态机全路径 + 条件评估）
+- [x] 契约 schema（workflow_definition/instance/task）+ mcp-tools.json 更新
+
+### 工程加固（2026-08-13，✅ 已完成）
+- [x] 修复 OrgMgmtHandler 角色判断 bug（移除 handler 层 checkRole，权限由中间件统一控制）
+- [x] `/api/system/*` 挂载 RequireOrgAdmin 中间件
+- [x] MCP 工具管道接通 RateLimiter + AuditService（之前 nil-guarded 失效）
+- [x] CI/CD 流水线（GitHub Actions：Go vet/lint/test/build + Frontend tsc/build + SDK tsc/test）
+- [x] Lint 配置（golangci-lint + ESLint + Prettier）
+- [x] 过期文档清理（DEMO_ACCOUNTS.md / API_INTEGRATION.md 重写为 OAuth 现状）
 
 ## ❌ 已移除（低代码资产）
 
 - ~~FormDefinition、FormSubmission、FormDistribution~~
-- ~~WorkflowDefinition、WorkflowInstance、WorkflowApproval~~
 - ~~Application（低代码版）、ApplicationPage、WidgetLibrary~~
 - ~~ReportDefinition~~
-- ~~FormService、ApplicationService、WorkflowEngine、ReportService~~
+- ~~FormService、ApplicationService、ReportService~~
 - ~~ApplicationHandler、FormHandler~~
 - ~~crudgen 代码生成器~~
 
+> 注：低代码版 WorkflowEngine 已移除，但流程能力以 AI 原生方式（JSON 定义 + MCP 工具）在 Spec 06 重新实现。
+
 ## 📋 技术债务
 
-- [ ] Permission 中间件挂载到路由（RequireOrgAdmin/RequireDeptManager 已定义并有测试，但 handler 中未使用）
+- [x] ~~Permission 中间件挂载到路由~~（已完成）
+- [ ] MCP 工具集成测试（spec 03 完成标准提及，尚未补独立集成测试文件）
+- [ ] NotificationService 的 in-app channel 接入（workflow 审批通知目前为 no-op）
+- [ ] workflow 超时/SLA 自动升级（v2 扩展）
