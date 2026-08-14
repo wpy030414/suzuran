@@ -1,0 +1,14 @@
+{
+  "name": "meal-service",
+  "version": "1.0.0",
+  "description": "用餐管理应用",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@suzuran/sdk": "^1.0.0"
+  }
+}
