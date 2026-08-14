@@ -127,6 +127,13 @@ func (s *MCPServer) injectAuthContext(ctx context.Context, c *gin.Context) conte
 		}
 	}
 
+	// Extract app_id (for app-owned data tools)
+	if appID, exists := c.Get("app_id"); exists {
+		if id, ok := appID.(string); ok {
+			ctx = context.WithValue(ctx, contextKeyAppID, id)
+		}
+	}
+
 	return ctx
 }
 
@@ -138,6 +145,7 @@ const (
 	contextKeyOrgID  contextKey = "org_id"
 	contextKeyRole   contextKey = "role"
 	contextKeyScopes contextKey = "scopes"
+	contextKeyAppID  contextKey = "app_id"
 )
 
 // GetUserIDFromContext extracts the user ID from context.
@@ -174,4 +182,13 @@ func GetScopesFromContext(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("scopes not found in context")
 	}
 	return scopes, nil
+}
+
+// GetAppIDFromContext extracts the app ID from context.
+func GetAppIDFromContext(ctx context.Context) (string, error) {
+	appID, ok := ctx.Value(contextKeyAppID).(string)
+	if !ok {
+		return "", fmt.Errorf("app_id not found in context")
+	}
+	return appID, nil
 }
