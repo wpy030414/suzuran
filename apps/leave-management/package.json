@@ -1,0 +1,14 @@
+{
+  "name": "leave-management",
+  "version": "1.0.0",
+  "description": "请假管理系统",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@suzuran/sdk": "^1.0.0"
+  }
+}
