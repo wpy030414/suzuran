@@ -134,6 +134,12 @@ func (s *MCPServer) injectAuthContext(ctx context.Context, c *gin.Context) conte
 		}
 	}
 
+	// Extract the raw bearer token (for tools that inject it into
+	// containers, e.g. app.deploy -> OAUTH_TOKEN env var)
+	if auth := c.GetHeader("Authorization"); len(auth) > 7 && auth[:7] == "Bearer " {
+		ctx = context.WithValue(ctx, contextKeyToken, auth[7:])
+	}
+
 	return ctx
 }
 
@@ -146,6 +152,7 @@ const (
 	contextKeyRole   contextKey = "role"
 	contextKeyScopes contextKey = "scopes"
 	contextKeyAppID  contextKey = "app_id"
+	contextKeyToken  contextKey = "token"
 )
 
 // GetUserIDFromContext extracts the user ID from context.
@@ -191,4 +198,13 @@ func GetAppIDFromContext(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("app_id not found in context")
 	}
 	return appID, nil
+}
+
+// GetTokenFromContext extracts the raw bearer token from context.
+func GetTokenFromContext(ctx context.Context) (string, error) {
+	token, ok := ctx.Value(contextKeyToken).(string)
+	if !ok || token == "" {
+		return "", fmt.Errorf("token not found in context")
+	}
+	return token, nil
 }
