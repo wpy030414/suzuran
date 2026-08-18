@@ -1,6 +1,0 @@
-{
-  "name": "duty-scheduling",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": { "@suzuran/sdk": "^1.0.0" }
-}
